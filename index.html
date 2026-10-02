@@ -256,7 +256,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--in
    CONFIG — optional: paste your Apps Script proxy URL here so
    anyone opening the GitHub link gets AI answers without a key.
    ========================================================= */
-const DEFAULT_PROXY_URL = '';
+const DEFAULT_PROXY_URL = 'https://script.google.com/macros/s/AKfycbxMQ-b6P_UVMJHhLxbpU7mDbPsATQ1KbYEdGiCABP5-EoDLIAKNNnaIdZAyzs9gYVOx7w/exec';
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const STORE_KEY = 'stockpilot_v1';
 const COMPANY = 'Zenith Polychem Pvt. Ltd.';
@@ -703,7 +703,7 @@ function init(){
   $('#setForm').addEventListener('submit',e=>{ e.preventDefault();
     const p=$('#sProxy').value.trim(), k=$('#sKey').value.trim(), m=$('#sModel').value.trim()||DEFAULT_MODEL;
     if(p && !/^https:\/\/script\.google(usercontent)?\.com\//.test(p)){ $('#setMsg').textContent='Proxy must be a https://script.google.com/... URL.'; return; }
-    if(k && !/^[A-Za-z0-9_\-]{30,}$/.test(k)){ $('#setMsg').textContent='That does not look like a Gemini API key.'; return; }
+    if(k && !/^[A-Za-z0-9_.\-]{30,}$/.test(k)){ $('#setMsg').textContent='That does not look like a Gemini API key.'; return; }
     if(!/^[a-z0-9.\-]+$/.test(m)){ $('#setMsg').textContent='Invalid model name.'; return; }
     S.settings={proxy:p,key:k,model:m}; save(); updateModeBadge(); $('#setMsg').textContent='Saved. Mode: '+aiMode()+'.'; });
   $('#testBtn').onclick=async()=>{ $('#setMsg').textContent='Testing…'; if(aiMode()==='offline'){ $('#setMsg').textContent='No proxy or key saved — running in offline rule mode.'; return; }
