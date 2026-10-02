@@ -37,20 +37,66 @@
 html,body{margin:0}
 body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 button,input,select,textarea{font:inherit;color:inherit}
-header{background:var(--brand);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-header .logo{width:34px;height:34px;border-radius:8px;background:rgba(255,255,255,.15);display:grid;place-items:center;font-weight:700;font-size:13px}
-header h1{font-size:17px;margin:0}
-header .sub{font-size:12px;opacity:.9}
-header .sp{flex:1}
-header .pill{background:rgba(255,255,255,.18);border-radius:99px;padding:4px 10px;font-size:12px}
-header .pill:empty{display:none}
-header button{background:rgba(255,255,255,.15);border:0;color:#fff;border-radius:8px;padding:6px 10px;cursor:pointer}
-nav{display:flex;gap:4px;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto}
-nav button{border:0;background:none;padding:8px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;color:var(--ink-2)}
-nav button.on{background:var(--surface-2);color:var(--ink);font-weight:600}
-nav button:disabled{opacity:.4;cursor:default}
-main{padding:16px;max-width:1280px;margin:0 auto}
-.view{display:none}.view.on{display:block}
+[hidden]{display:none!important}
+#keyCharts,#gallery,#pinned{grid-template-columns:repeat(auto-fit,minmax(min(440px,100%),1fr))}
+#pinned:empty{display:none}
+/* ---------- app shell ---------- */
+.shell{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:8px;padding:16px 12px;background:var(--surface);border-right:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:10px;color:var(--brand);font-weight:700;font-size:14.5px;line-height:1.2;padding:2px 6px 12px}
+.brand span{color:var(--ink)}
+#nav{display:flex;flex-direction:column;gap:2px}
+#nav button{display:flex;align-items:center;gap:10px;border:0;background:none;padding:9px 10px;border-radius:9px;cursor:pointer;color:var(--ink-2);text-align:left;font-size:14px}
+#nav button:hover:not(:disabled){background:var(--surface-2);color:var(--ink)}
+#nav button.on{background:var(--bot);color:var(--brand);font-weight:600}
+#nav button:disabled{opacity:.38;cursor:default}
+.side-foot{margin-top:auto;border-top:1px solid var(--border);padding-top:12px;display:flex;flex-direction:column;gap:8px}
+.who{display:flex;gap:10px;align-items:center;font-size:13px}.who b{display:block}.who span{color:var(--muted);font-size:12px}
+.av{width:34px;height:34px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+.side-foot .btn{display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px}
+.mainwrap{min-width:0;display:flex;flex-direction:column}
+header.top{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 24px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+header.top h1{font-size:19px;margin:0}
+header.top .sub{font-size:12px;color:var(--muted)}
+header.top .sp{flex:1}
+.pill{background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px 10px;font-size:12px;color:var(--ink-2)}
+.pill:empty{display:none}.pill.alert{background:var(--crit-bg);border-color:transparent;color:var(--ink);font-weight:600}
+.iconbtn{border:1px solid var(--border);background:var(--surface);color:var(--ink-2);border-radius:9px;padding:6px 8px;cursor:pointer;display:grid;place-items:center}
+main{padding:20px 24px 90px;max-width:1320px;width:100%;margin:0 auto;display:block}
+.view.on{display:flex;flex-direction:column;gap:14px}
+.sechead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:6px}.sechead h2{font-size:16px;margin:0}
+.askbar{display:flex;gap:10px;align-items:center;padding:10px 12px;color:var(--brand)}.askbar input{flex:1;min-width:150px;border:0!important;background:transparent!important;font-size:15px;outline:none}
+details.fold>summary{list-style:none}details.fold>summary::-webkit-details-marker{display:none}details.fold>summary::before{content:"▸ ";color:var(--muted)}details.fold[open]>summary::before{content:"▾ "}
+.btn.big{width:100%;padding:11px;font-size:15px;margin-top:6px}
+/* ---------- login ---------- */
+.login{display:grid;grid-template-columns:1.1fr 1fr;min-height:100vh}
+.login-art{background:linear-gradient(160deg,#1c5cab,#0d366b);color:#fff;padding:48px 56px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.login-art .brand,.login-art .brand span{color:#fff}
+.login-art h1{font-size:34px;line-height:1.15;margin:8px 0 0;max-width:520px}.login-art p{font-size:16px;opacity:.9;max-width:520px;margin:0}
+.login-art ul{margin:8px 0 0;padding-left:18px;opacity:.92;line-height:1.9}
+.login-panel{display:grid;place-items:center;padding:32px 20px;background:var(--bg)}
+.login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 40px rgba(0,0,0,.06)}
+.login-card h2{margin:0;font-size:20px}
+.recent{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}.recent button{border:1px solid var(--axis);background:var(--surface);border-radius:99px;padding:4px 10px;cursor:pointer;font-size:12.5px}
+/* ---------- help ---------- */
+.help h2{font-size:17px;margin:0 0 6px}.help h3{margin-top:0}
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;counter-reset:st}
+.flow div{background:var(--surface-2);border-radius:10px;padding:12px;font-size:12.5px;position:relative}
+.flow div b{display:block;font-size:13.5px;margin-bottom:3px;padding-right:18px}
+.flow div::before{counter-increment:st;content:counter(st);position:absolute;right:10px;top:8px;font-weight:700;color:var(--brand);opacity:.5;font-size:18px}
+.kv{display:grid;grid-template-columns:minmax(140px,max-content) 1fr;gap:6px 14px;font-size:13px}.kv dt{color:var(--muted)}.kv dd{margin:0}
+.faq details{border-bottom:1px solid var(--grid);padding:8px 0}.faq summary{cursor:pointer;font-weight:600;font-size:13.5px}.faq p{margin:6px 0 0;font-size:13px;color:var(--ink-2)}
+.qchips{display:flex;flex-wrap:wrap;gap:6px}.qchips button{border:1px solid var(--axis);background:var(--surface);border-radius:99px;padding:5px 11px;cursor:pointer;font-size:12.5px}
+@media (max-width:900px){
+  .shell{grid-template-columns:1fr}
+  .side{position:sticky;top:0;z-index:20;height:auto;flex-direction:row;align-items:center;padding:8px 10px;border-right:0;border-bottom:1px solid var(--border);overflow-x:auto}
+  .side .brand span,.side-foot .who,.side-foot .btn span{display:none}.side .brand{padding:0}
+  #nav{flex-direction:row}#nav button span{font-size:12.5px}
+  .side-foot{margin:0;border:0;padding:0;flex-direction:row}
+  header.top{position:static;padding:10px 14px}main{padding:14px 14px 90px}
+  .login{grid-template-columns:1fr}.login-art{padding:28px 22px}.login-art h1{font-size:24px}
+}
+.view{display:none}.view.on{display:flex;flex-direction:column;gap:14px}
 .grid{display:grid;gap:12px}
 .kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
 .two{grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr))}
@@ -140,23 +186,53 @@ table.corr td{cursor:pointer}
 </style>
 </head>
 <body>
-<header>
-  <div class="logo">ISA</div>
-  <div><h1>Inventory &amp; Stock Assistant</h1><div class="sub" id="dsName">Upload your stock file to begin</div></div>
+<!-- LOGIN -->
+<div id="login" class="login" hidden>
+  <div class="login-art">
+    <div class="brand"><svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor" opacity=".16"/><path d="M9 22V12l7-4 7 4v10l-7 4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 12l7 4 7-4M16 16v10" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Inventory &amp; Stock Assistant</span></div>
+    <h1>Know what to reorder before you run out.</h1>
+    <p>Upload your company's stock file and get low-stock alerts, reorder plans based on sales velocity, approved charts and an AI assistant that answers questions about your own data.</p>
+    <ul><li>Works with Tally, SAP, Zoho or any Excel / CSV</li><li>Your file stays in your browser</li><li>Every chart checked before it is shown</li></ul>
+  </div>
+  <div class="login-panel">
+    <form id="loginForm" class="login-card" novalidate>
+      <h2>Sign in to your company workspace</h2>
+      <p class="hint" style="margin-top:0">Each company gets its own workspace on this device — data, settings and chat are kept separately.</p>
+      <label class="f">Company name<input type="text" id="lgCompany" maxlength="60" autocomplete="organization" placeholder="e.g. ABC Industries"></label>
+      <label class="f">Your name<input type="text" id="lgUser" maxlength="40" autocomplete="name" placeholder="e.g. Priya Shah"></label>
+      <label class="f">Your role<select id="lgRole"><option>Store keeper</option><option>Purchase / procurement</option><option selected>Plant / warehouse manager</option><option>Management</option><option>Analyst / student</option></select></label>
+      <div class="err" id="lgErr"></div>
+      <button class="btn big" type="submit">Open workspace</button>
+      <button class="btn ghost big" type="button" id="lgDemo">Explore with a demo company</button>
+      <div id="lgRecent"></div>
+      <p class="hint" style="margin:10px 0 0">Demo sign-in: the company name selects a workspace in this browser; it is not a password-protected account.</p>
+    </form>
+  </div>
+</div>
+<!-- APP SHELL -->
+<div id="shell" class="shell" hidden>
+<aside class="side">
+  <div class="brand"><svg viewBox="0 0 32 32" width="34" height="34" aria-hidden="true"><rect width="32" height="32" rx="8" fill="currentColor" opacity=".16"/><path d="M9 22V12l7-4 7 4v10l-7 4z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 12l7 4 7-4M16 16v10" fill="none" stroke="currentColor" stroke-width="2"/></svg><span>Inventory &amp;<br>Stock Assistant</span></div>
+  <nav id="nav">
+    <button data-v="overview"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Dashboard</span></button>
+    <button data-v="inventory"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg><span>Inventory</span></button>
+    <button data-v="reorder"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 4h2l2.4 11.2a1 1 0 0 0 1 .8h9.2a1 1 0 0 0 1-.8L20 8H6"/><circle cx="9" cy="20" r="1.3"/><circle cx="17" cy="20" r="1.3"/></svg><span>Reorder Planner</span></button>
+    <button data-v="entry"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>Stock Entry</span></button>
+    <button data-v="data" class="on"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>Upload Data</span></button>
+    <button data-v="help"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><circle cx="12" cy="17.5" r=".6" fill="currentColor"/></svg><span>Help</span></button>
+    <button data-v="settings"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
+  </nav>
+  <div class="side-foot"><div class="who"><div class="av" id="avatar">?</div><div><b id="coName"></b><span id="userChip"></span></div></div><button class="btn ghost" id="logoutBtn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg><span>Switch company</span></button></div>
+</aside>
+<div class="mainwrap">
+<header class="top">
+  <div><h1 id="pageTitle">Upload Data</h1><div class="sub" id="dsName">Upload your stock file to begin</div></div>
   <div class="sp"></div>
-  <span class="pill" id="alertPill" style="cursor:pointer"></span>
+  <span class="pill alert" id="alertPill" style="cursor:pointer"></span>
   <span class="pill" id="aiMode">AI: offline rules</span>
   <span class="pill" id="asOf"></span>
-  <button id="themeBtn" title="Toggle light/dark theme">Theme</button>
+  <button id="themeBtn" class="iconbtn" title="Toggle light/dark theme" aria-label="Toggle theme"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
 </header>
-<nav id="nav">
-  <button data-v="data" class="on">Upload Data</button>
-  <button data-v="overview">Dashboard</button>
-  <button data-v="inventory">Inventory</button>
-  <button data-v="reorder">Reorder Planner</button>
-  <button data-v="entry">Stock Entry</button>
-  <button data-v="settings">Settings &amp; About</button>
-</nav>
 <main>
 <!-- UPLOAD -->
 <section class="view on" id="v-data">
@@ -199,41 +275,42 @@ table.corr td{cursor:pointer}
 
 <!-- DASHBOARD -->
 <section class="view" id="v-overview">
-  <form class="card toolbar" id="askBar" style="margin-bottom:12px"><b style="white-space:nowrap">Ask your stock</b><input type="text" id="askIn" maxlength="500" style="flex:1;min-width:200px" placeholder="Ask anything about your uploaded stock data"><button class="btn">Ask</button></form>
-  <div class="card" id="alertCard" style="margin-bottom:12px">
-    <div class="toolbar"><h3 style="margin:0;flex:1">🔔 Low-stock alerts <span class="hint" id="alertHint"></span></h3><button class="btn ghost" id="copyAlerts" type="button">Copy alert message</button></div>
+  <form class="card askbar" id="askBar"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><input type="text" id="askIn" maxlength="500" placeholder="Ask anything about your stock data"><button class="btn">Ask</button></form>
+  <div class="grid kpis" id="kpis"></div>
+  <div class="card" id="alertCard">
+    <div class="toolbar"><h3 style="margin:0;flex:1">Low-stock alerts <span class="hint" id="alertHint"></span></h3><button class="btn ghost" id="copyAlerts" type="button">Copy alert message</button></div>
     <div id="alerts"></div>
   </div>
-  <div class="grid kpis" id="kpis"></div>
-  <div class="grid two" style="margin-top:12px">
-    <div class="card"><h3 id="t1"></h3><div class="chartbox" id="b1"><canvas id="c1"></canvas></div><div id="e1"></div></div>
-    <div class="card"><h3 id="t2"></h3><div class="chartbox" id="b2"><canvas id="c2"></canvas></div><div id="e2"></div></div>
-  </div>
-  <div class="grid two" style="margin-top:12px">
-    <div class="card">
-      <h3>AI stock briefing <span class="hint">generated from your uploaded data</span></h3>
+  <div class="sechead"><h2>Key charts</h2><span class="hint">Only charts approved by the evaluation engine are shown · click any bar or point for its numbers</span></div>
+  <div class="grid two" id="keyCharts">
+    <div class="card" id="k1"><h3 id="t1"></h3><div class="chartbox" id="b1"><canvas id="c1"></canvas></div><div id="e1"></div></div>
+    <div class="card" id="k2"><h3 id="t2"></h3><div class="chartbox" id="b2"><canvas id="c2"></canvas></div><div id="e2"></div></div>
+    <div class="card" id="k3"><h3 id="t3"></h3><div class="chartbox" id="b3"><canvas id="c3"></canvas></div><div id="e3"></div></div>
+    <div class="card" id="briefCard">
+      <h3>AI stock briefing <span class="hint">from your data</span></h3>
       <div class="toolbar"><button class="btn" id="briefBtn">Generate briefing</button><span class="badge" id="briefSrc"></span></div>
-      <div class="ai-out" id="briefOut"><span class="hint">Click “Generate briefing” for a short summary of stock risks and actions.</span></div>
+      <div class="ai-out" id="briefOut"><span class="hint">A five-point summary of stock risks and the actions to take first.</span></div>
     </div>
-    <div class="card"><h3 id="t3"></h3><div class="chartbox" id="b3"><canvas id="c3"></canvas></div><div id="e3"></div></div>
   </div>
-  <div class="card" style="margin-top:12px"><h3 style="margin-bottom:2px">Insights gallery <span class="hint">time series · clustered column · Pareto · histogram · scatter · correlation — only patterns the engine approved</span></h3><div class="hint" id="gallerySum"></div>
-    <div class="grid two" id="gallery" style="margin-top:10px"></div></div>
-  <div class="card" style="margin-top:12px">
-    <div class="toolbar"><h3 style="margin:0;flex:1">Build your own chart <span class="hint">every chart is checked by the evaluation engine before it is drawn · or ask the chat, e.g. “chart stock value by supplier”</span></h3></div>
-    <div class="toolbar">
+  <div id="galleryWrap">
+    <div class="sechead"><h2>More insights</h2><span class="hint" id="gallerySum"></span></div>
+    <div class="grid two" id="gallery"></div>
+  </div>
+  <div class="grid two" id="pinned"></div>
+  <details class="card fold" id="builderCard"><summary><b>Build your own chart</b> <span class="hint">pick any column — the chart is drawn only if it passes the checks · or ask the chat, e.g. “chart stock value by supplier”</span></summary>
+    <div class="toolbar" style="margin-top:10px">
       <label class="f">Measure<select id="bM"></select></label>
       <label class="f">Group by<select id="bG"></select></label>
       <label class="f">Calculation<select id="bA"><option value="sum">Sum</option><option value="avg">Average</option><option value="max">Maximum</option><option value="count">Count of items</option></select></label>
       <label class="f">Show<select id="bN"><option value="10">Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option></select></label>
     </div>
+    <div class="hint" id="bNote"></div>
     <div style="font-weight:600;font-size:13px;margin:4px 0" id="bTitle"></div>
     <div class="chartbox" id="buildBox"><canvas id="cBuild"></canvas></div>
     <div id="bEval"></div>
-  </div>
-  <div class="grid two" id="pinned" style="margin-top:12px"></div>
-  <details class="card" id="auditCard" style="margin-top:12px"><summary><b>Chart audit</b> <span class="hint" id="auditSum"></span></summary>
-    <p class="hint">Every chart the data allows is generated, checked against the rules below, and only approved charts are drawn. Rules: approved chart type · at least 2 groups (7 points for a trend) · ≥50% data coverage · valid calculation (no adding days, rates or IDs) · same units when adding quantities · values must vary · no single bar ≥95% (warning) · decision relevance.</p>
+  </details>
+  <details class="card fold" id="auditCard"><summary><b>Chart audit</b> <span class="hint" id="auditSum"></span></summary>
+    <p class="hint">Every chart the data allows is generated and checked; only approved charts are shown on the dashboard. Rules: approved chart type · enough groups / points · ≥ 50% data coverage · valid calculation (no adding days, rates or IDs) · same units · values must vary · pattern strength for scatter, Pareto, clustered and histogram charts · decision relevance.</p>
     <div class="tablewrap" id="audit"></div></details>
 </section>
 
@@ -308,6 +385,9 @@ table.corr td{cursor:pointer}
   </div>
 </section>
 
+<!-- HELP -->
+<section class="view" id="v-help"><div id="helpBody"></div></section>
+
 <!-- SETTINGS -->
 <section class="view" id="v-settings">
   <div class="grid two">
@@ -341,6 +421,8 @@ table.corr td{cursor:pointer}
   </div>
 </section>
 </main>
+</div><!-- /mainwrap -->
+</div><!-- /shell -->
 
 <button id="fab">💬 Ask Stock Assistant</button>
 <div id="chat" role="dialog" aria-label="Stock assistant">
@@ -358,7 +440,7 @@ table.corr td{cursor:pointer}
 const DEFAULT_PROXY_URL = 'https://script.google.com/macros/s/AKfycbxMQ-b6P_UVMJHhLxbpU7mDbPsATQ1KbYEdGiCABP5-EoDLIAKNNnaIdZAyzs9gYVOx7w/exec';
 const DEFAULT_MODEL = 'gemini-flash-latest';
 const FALLBACK_MODELS = ['gemini-flash-latest','gemini-3.5-flash-lite','gemini-3-flash-preview','gemini-flash-lite-latest'];
-const STORE_KEY = 'isa_v2';
+let STORE_KEY = 'isa_v2';   // set per company at sign-in
 const HIST_DAYS = 90;
 const MAX_CONTEXT_ROWS = 120;
 let usedModel = '';
@@ -467,7 +549,7 @@ function readFiles(files){
   }).catch(e=>{ $('#upMsg').textContent='Error reading file: '+e.message; });
 }
 /* ---- learning: remember every confirmed mapping by the file's column signature ---- */
-const LEARN_KEY='isa_learned_v1';
+let LEARN_KEY='isa_learned_v1';
 const sigOf=h=>h.map(norm).filter(Boolean).sort().join('|');
 function learned(){ return safeGet(LEARN_KEY)||{}; }
 function remember(sheets){ const L=learned(); sheets.forEach(s=>{ L[sigOf(s.headers)]={role:s.role,map:s.map,typeMap:s.typeMap||null,at:Date.now()}; }); safeSet(LEARN_KEY,L); }
@@ -784,7 +866,7 @@ const short=s=>s.length>28?s.slice(0,27)+'…':s;
 function afterDataChange(){
   _mCache=null;
   const has=hasData();
-  $$('#nav button').forEach(b=>{ if(!['data','settings'].includes(b.dataset.v)) b.disabled=!has; });
+  $$('#nav button').forEach(b=>{ if(!['data','settings','help'].includes(b.dataset.v)) b.disabled=!has; });
   $('#fab').style.display = has ? '' : 'none'; if(!has) $('#chat').classList.remove('on');
   if(!has){ $('#dsName').textContent='Upload your stock file to begin'; $('#asOf').textContent=''; return; }
   $('#dsName').textContent = (S.meta.name ? S.meta.name+' · ' : '') + `${inr(S.items.length)} items · ${S.meta.files}`;
@@ -815,7 +897,7 @@ function buildAlerts(M){
 function renderAlerts(M){
   const A=buildAlerts(M), urgent=A.filter(a=>a.sev<=1).length;
   $('#fab').textContent = '💬 Ask Stock Assistant'+(urgent?` · 🔔 ${urgent}`:'');
-  $('#alertPill').textContent = urgent ? `🔔 ${urgent} alert${urgent>1?'s':''}` : '🔔 No alerts';
+  $('#alertPill').textContent = urgent ? `${urgent} stock alert${urgent>1?'s':''}` : 'No stock alerts'; $('#alertPill').classList.toggle('alert',urgent>0);
   $('#alertHint').textContent = A.length ? `${urgent} need action · based on sales velocity and supplier lead time` : '';
   const show=A.slice(0,8);
   $('#alerts').innerHTML = A.length ? '<div class="alerts">'+show.map(a=>`<div class="al"><span class="sev s${a.sev}">${a.tag}</span><span>${esc(a.msg)}</span><span class="act">${esc(a.act||'')}</span></div>`).join('')+'</div>'+(A.length>8?`<p class="hint" style="margin:6px 0 0">+${A.length-8} more — see the Inventory tab.</p>`:'') : '<p class="hint" style="margin:0">All items are above their reorder points. No alerts.</p>';
@@ -845,7 +927,7 @@ function renderKPIs(M){
       on the approved list) are drawn on the dashboard. Rejected charts show the
       reasons and, where possible, an approved alternative.
    ===================================================================== */
-const POLICY_KEY='isa_chart_policy_v1';
+let POLICY_KEY='isa_chart_policy_v1';
 const CATALOG=[
  {id:'risk_cover', name:'Days of cover vs lead time', type:'Ranked bar + threshold', purpose:'Shows which items will run out before a new lot can arrive.'},
  {id:'stock_rop',  name:'Stock vs reorder level',     type:'Ranked bar + threshold', purpose:'Shows how far each item is from its reorder level.'},
@@ -1003,7 +1085,9 @@ function renderCharts(M){
     const box=$('#b'+slot), cid='c'+slot;
     if(pick){ used.add(pick); pick.shown='Dashboard slot '+slot; $('#t'+slot).innerHTML=`${esc(pick.title)} <span class="hint">${esc(pick.hint||'')}</span>`; (ADV_KINDS.includes(pick.kind)?drawAdv:drawSpec)(cid,box,pick);
       $('#e'+slot).innerHTML=(pick.legend?'<div class="hint" style="margin-top:6px"><span class="st CRITICAL">CRITICAL</span> <span class="st LOW">LOW</span> <span class="st OK">OK</span> <span class="st EXCESS">EXCESS</span> <span class="st NODATA">NO USAGE DATA</span></div>':'')+evalBadge(pick.ev,pick); }
-    else { if(charts[cid]){charts[cid].destroy(); delete charts[cid];} clearPin(box); box.style.height='auto';
+    $('#k'+slot).hidden=!pick;
+    if(!pick){ if(charts[cid]){charts[cid].destroy(); delete charts[cid];} clearPin(box); return; }
+    else if(false){ if(charts[cid]){charts[cid].destroy(); delete charts[cid];} clearPin(box); box.style.height='auto';
       const rej=C.filter(sp=>sp.slot===slot).sort((a,b)=>b.ev.score-a.ev.score)[0];
       $('#t'+slot).textContent='No approved chart for this data';
       box.innerHTML=`<div class="empty">The engine checked ${C.filter(sp=>sp.slot===slot).length} possible chart(s) here and none passed.${rej?`<br>Closest: “${esc(rej.title)}” — ${esc(rej.ev.checks.find(c=>c.status==='fail')?.msg||'score too low')}`:''}</div>`; $('#e'+slot).innerHTML=''; }
@@ -1150,6 +1234,7 @@ function renderGallery(A){
   const pick=[], per={}; ok.forEach(sp=>{ if(pick.length<8 && (per[sp.catalog]||0)<2){ pick.push(sp); per[sp.catalog]=(per[sp.catalog]||0)+1; sp.shown='Insights gallery'; } });
   const rej=A.filter(sp=>sp.ev.verdict!=='APPROVED').length;
   $('#gallerySum').textContent=`${A.length} combinations of your columns checked · ${pick.length} shown · ${rej} skipped (no clear pattern or rule failed — see Chart audit)`;
+  $('#galleryWrap').hidden=!pick.length;
   $('#gallery').innerHTML=pick.length?pick.map((sp,i)=>`<div class="card"><h3>${esc(sp.title)} <span class="hint">${esc(sp.hint||'')}</span></h3><div class="chartbox" id="gb${i}"><canvas id="gc${i}"></canvas></div><div id="ge${i}"></div></div>`).join(''):'<p class="hint">No advanced chart passed the checks for this data.</p>';
   pick.forEach((sp,i)=>{ drawAdv('gc'+i,$('#gb'+i),sp); $('#ge'+i).innerHTML=evalBadge(sp.ev,sp); });
 }
@@ -1173,6 +1258,7 @@ function fillBuilder(M){
 }
 function renderBuilder(M, cfgOverride){
   M=M||metrics(); if(!$('#bM').options.length) fillBuilder(M);
+  if(!cfgOverride) $('#bNote').innerHTML='';
   if(cfgOverride){ ['m','g','a','n'].forEach((k,i)=>{ if(cfgOverride[k]!=null) $(['#bM','#bG','#bA','#bN'][i]).value=cfgOverride[k]; }); }
   const sp=specCustom(M,$('#bM').value,$('#bG').value,$('#bA').value,+$('#bN').value); builderSpec=sp;
   const box=$('#buildBox');
@@ -1180,10 +1266,11 @@ function renderBuilder(M, cfgOverride){
   sp.ev=evaluate(sp,M);
   let extra='';
   if(sp.ev.verdict==='APPROVED'){ $('#bTitle').textContent=sp.title; drawSpec('cBuild',box,sp); extra=` <button class="btn ghost" type="button" id="pinBtn" style="padding:3px 10px;font-size:12px">＋ Add to dashboard</button>`; }
-  else { if(charts.cBuild){charts.cBuild.destroy(); delete charts.cBuild;} clearPin(box); box.style.height='auto'; $('#bTitle').textContent='Chart not approved';
-    let alt=''; if(sp.ev.fix){ const f=specCustom(M,sp.ev.fix.m,sp.ev.fix.g,sp.ev.fix.a,+sp.ev.fix.n); if(f){ f.ev=evaluate(f,M); if(f.ev.verdict==='APPROVED') alt=`<br><button class="btn ghost" type="button" id="fixBtn" style="margin-top:8px">Use approved alternative: ${esc(f.title)}</button>`; } }
-    box.innerHTML=`<div class="empty">✕ ${esc(sp.title)} was rejected by the evaluation engine:<br>${sp.ev.checks.filter(c=>c.status==='fail').map(c=>'• '+esc(c.msg)).join('<br>')}${alt}</div>`;
-    const fb=$('#fixBtn'); if(fb) fb.onclick=()=>renderBuilder(null,sp.ev.fix); }
+  else { const why=sp.ev.checks.filter(c=>c.status==='fail').map(c=>c.msg).join(' ');
+    if(sp.ev.fix && !cfgOverride?._alt){ const f=specCustom(M,sp.ev.fix.m,sp.ev.fix.g,sp.ev.fix.a,+sp.ev.fix.n); if(f && evaluate(f,M).verdict==='APPROVED'){ const r=renderBuilder(M,{...sp.ev.fix,_alt:true}); $('#bNote').innerHTML=`ⓘ “${esc(sp.title)}” can't be charted (${esc(why)}) — showing the approved alternative instead.`; return r; } }
+    if(charts.cBuild){charts.cBuild.destroy(); delete charts.cBuild;} clearPin(box); box.style.height='0px'; box.style.overflow='hidden'; $('#bTitle').textContent='';
+    $('#bNote').innerHTML=`ⓘ This combination can't be charted: ${esc(why)} Try a different measure, grouping or calculation.`; $('#bEval').innerHTML=''; sp.shown='Blocked'; const hit=lastAudit.findIndex(a=>a.catalog==='custom'); if(hit>=0) lastAudit.splice(hit,1); lastAudit.push(sp); return sp; }
+  if(sp.ev.verdict==='APPROVED'){ box.style.overflow=''; if(!cfgOverride?._alt) $('#bNote').innerHTML=''; }
   $('#bEval').innerHTML=evalBadge(sp.ev,sp,extra);
   const pb=$('#pinBtn'); if(pb) pb.onclick=e=>{ e.preventDefault(); S.meta.pinned=(S.meta.pinned||[]).filter(p=>JSON.stringify(p)!==JSON.stringify(sp.cfg)).concat([sp.cfg]).slice(-6); save(); renderPinned(); pb.textContent='✓ Added'; };
   if(S.meta){ S.meta.chartCfg={m:$('#bM').value,g:$('#bG').value,a:$('#bA').value,n:$('#bN').value}; save(); }
@@ -1194,7 +1281,7 @@ function renderPinned(M){
   M=M||metrics(); const P=S.meta.pinned||[]; const wrap=$('#pinned');
   if(!P.length){ wrap.innerHTML=''; return; }
   wrap.innerHTML=P.map((c,i)=>`<div class="card"><div class="toolbar" style="margin-bottom:4px"><h3 style="margin:0;flex:1" id="pt${i}"></h3><button class="btn ghost" type="button" data-unpin="${i}" style="padding:3px 8px;font-size:12px">Remove</button></div><div class="chartbox" id="pb${i}"><canvas id="pc${i}"></canvas></div><div id="pe${i}"></div></div>`).join('');
-  P.forEach((c,i)=>{ const sp=specCustom(M,c.m,c.g,c.a,+c.n); if(!sp){ $('#pt'+i).textContent='Chart no longer available for this data'; $('#pb'+i).innerHTML=''; return; }
+  P.forEach((c,i)=>{ const sp=specCustom(M,c.m,c.g,c.a,+c.n); const card=$('#pt'+i).closest('.card'); if(!sp||evaluate(sp,M).verdict!=='APPROVED'){ card.hidden=true; return; } if(!sp){ $('#pt'+i).textContent='Chart no longer available for this data'; $('#pb'+i).innerHTML=''; return; }
     sp.ev=evaluate(sp,M);   // re-evaluated every time the data changes
     if(sp.ev.verdict==='APPROVED'){ $('#pt'+i).textContent=sp.title; drawSpec('pc'+i,$('#pb'+i),sp); $('#pe'+i).innerHTML=evalBadge(sp.ev,sp); }
     else { $('#pt'+i).textContent=sp.title+' — hidden'; $('#pb'+i).style.height='auto'; $('#pb'+i).innerHTML=`<div class="empty">No longer approved for the current data: ${esc(sp.ev.checks.find(c=>c.status==='fail')?.msg||'')}</div>`; $('#pe'+i).innerHTML=''; } });
@@ -1215,11 +1302,12 @@ function chartFromText(t){
   const m=ms.map(x=>[x,score(x.label,parts[0])-(x.money&&!wantMoney?0.5:0)]).sort((a,b)=>b[1]-a[1])[0]; const d=D.map(x=>[x,score(x.label,parts[1])]).sort((a,b)=>b[1]-a[1])[0];
   const how=/average|avg|mean/.test(T)?'avg':/count|number of|how many/.test(T)?'count':/max|highest|largest/.test(T)?'max':'sum';
   if(!d||!(d[1]>0)||(how!=='count'&&(!m||!(m[1]>0)))) return null;
-  fillBuilder(M); const sp=renderBuilder(M,{m:m?m[0].key:undefined,g:d[0].key,a:how}); if(!sp) return null;
-  if(sp.ev.verdict==='APPROVED') return `✓ **Approved (${sp.ev.score}/100)** — I've drawn **${sp.title}** in “Build your own chart” on the Dashboard. Click “Add to dashboard” to keep it.`;
-  const why=sp.ev.checks.filter(c=>c.status==='fail').map(c=>'- '+c.msg).join('\n');
-  let alt=''; if(sp.ev.fix){ const f=specCustom(M,sp.ev.fix.m,sp.ev.fix.g,sp.ev.fix.a,+sp.ev.fix.n); if(f&&evaluate(f,M).verdict==='APPROVED') alt=`\nApproved alternative: **${f.title}** — use the button under the chart.`; }
-  return `✕ **Not approved** — the evaluation engine blocked **${sp.title}**:\n${why}${alt}`;
+  fillBuilder(M); const reqCfg={m:m?m[0].key:$('#bM').value,g:d[0].key,a:how,n:+$('#bN').value||10};
+  const req=specCustom(M,reqCfg.m,reqCfg.g,reqCfg.a,reqCfg.n); if(!req) return null; req.ev=evaluate(req,M);
+  $('#builderCard').open=true; const shown=renderBuilder(M,reqCfg);
+  if(req.ev.verdict==='APPROVED') return `✓ **Approved (${req.ev.score}/100)** — I've drawn **${req.title}** under “Build your own chart” on the Dashboard. Click “Add to dashboard” to keep it.`;
+  const why=req.ev.checks.filter(c=>c.status==='fail').map(c=>'- '+c.msg).join('\n');
+  return `**${req.title}** can't be charted:\n${why}`+(shown&&shown.ev?.verdict==='APPROVED'&&shown.title!==req.title?`\nI've drawn the approved alternative instead: **${shown.title}**.`:'\nTry a different measure or grouping.');
 }
 function renderInv(){
   if(!hasData()) return;
@@ -1538,7 +1626,8 @@ function exportCSV(){ const r=metrics().filter(x=>x.sugg>0);
   const csv=rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download=`reorder_${iso(TODAY)}.csv`; a.click(); }
 
 /* ============ wiring ============ */
-function go(v){ const b=$(`#nav button[data-v="${v}"]`); if(!b||b.disabled) return; $$('#nav button').forEach(x=>x.classList.toggle('on',x===b)); $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); try{sessionStorage.setItem('isa_tab',v);}catch(e){} if(hasData()) setTimeout(()=>Object.values(charts).forEach(c=>c.resize()),0); }
+const PAGE={overview:'Dashboard',inventory:'Inventory',reorder:'Reorder Planner',entry:'Stock Entry',data:'Upload Data',help:'Help',settings:'Settings'};
+function go(v){ const b=$(`#nav button[data-v="${v}"]`); if(!b||b.disabled) return; $('#pageTitle').textContent=PAGE[v]||''; if(v==='help') renderHelp(); window.scrollTo(0,0); $$('#nav button').forEach(x=>x.classList.toggle('on',x===b)); $$('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v)); try{sessionStorage.setItem('isa_tab',v);}catch(e){} if(hasData()) setTimeout(()=>Object.values(charts).forEach(c=>c.resize()),0); }
 function init(){
   load();
   $('#eDate').value=iso(TODAY); $('#eDate').max=iso(TODAY);
@@ -1579,9 +1668,102 @@ function init(){
   $('#clearChat').onclick=()=>{ S.chat=[]; save(); renderChat(); };
   $('#themeBtn').onclick=()=>{ const cur=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'); const nx=cur==='dark'?'light':'dark'; document.documentElement.dataset.theme=nx; try{localStorage.setItem('isa_theme',nx);}catch(e){} renderAll(); };
   window.addEventListener('storage',e=>{ if(e.key===STORE_KEY){ load(); afterDataChange(); renderQuality(); } });
+  $('#logoutBtn').onclick=logout;
 }
 try{ const th=localStorage.getItem('isa_theme'); if(th) document.documentElement.dataset.theme=th; }catch(e){}
-init();
+/* ================= SIGN-IN (company workspaces) ================= */
+const slug=c=>norm(c).replace(/ /g,'-').slice(0,40)||'company';
+let SESSION=null;
+function companies(){ return safeGet('isa_companies')||[]; }
+function startApp(sess){
+  SESSION=sess; const k=slug(sess.company);
+  STORE_KEY='isa_ws::'+k; LEARN_KEY='isa_learned::'+k; POLICY_KEY='isa_policy::'+k;
+  // first sign-in after the update: carry over data from the single-workspace version
+  try{ if(!localStorage.getItem(STORE_KEY) && localStorage.getItem('isa_v2') && !companies().length) localStorage.setItem(STORE_KEY, localStorage.getItem('isa_v2')); }catch(e){}
+  const list=companies().filter(c=>slug(c.company)!==k); list.unshift({company:sess.company,user:sess.user,role:sess.role,at:Date.now()}); safeSet('isa_companies',list.slice(0,8));
+  try{ sessionStorage.setItem('isa_session',JSON.stringify(sess)); }catch(e){}
+  $('#login').hidden=true; $('#shell').hidden=false; document.title=sess.company+' · Inventory & Stock Assistant';
+  $('#coName').textContent=sess.company; $('#userChip').textContent=(sess.user?sess.user+' · ':'')+sess.role; $('#avatar').textContent=sess.company.trim()[0].toUpperCase();
+  init();
+  if(!hasData() && sess.demo){ loadSample(); $('#dsInput').value=sess.company; buildDataset(); }
+  if(!S.meta || !S.meta.name){ $('#dsInput').value=sess.company; }
+}
+function showLogin(){
+  $('#shell').hidden=true; $('#login').hidden=false; $('#fab').style.display='none'; $('#chat').classList.remove('on');
+  const rec=companies(); $('#lgRecent').innerHTML=rec.length?'<div class="hint" style="margin-top:8px">Recent workspaces</div><div class="recent">'+rec.map((c,i)=>`<button type="button" data-rc="${i}">${esc(c.company)}</button>`).join('')+'</div>':'';
+  $$('#lgRecent [data-rc]').forEach(b=>b.onclick=()=>{ const c=rec[+b.dataset.rc]; $('#lgCompany').value=c.company; $('#lgUser').value=c.user||''; $('#lgRole').value=c.role||$('#lgRole').value; $('#lgCompany').focus(); });
+  $('#loginForm').onsubmit=e=>{ e.preventDefault(); const company=$('#lgCompany').value.trim().replace(/\s+/g,' '), user=$('#lgUser').value.trim(), role=$('#lgRole').value;
+    if(company.length<2){ $('#lgErr').textContent='Please enter your company name (at least 2 characters).'; return; }
+    if(!/[A-Za-z0-9]/.test(company)){ $('#lgErr').textContent='Company name must contain letters or numbers.'; return; }
+    startApp({company,user,role}); };
+  $('#lgDemo').onclick=()=>startApp({company:'Demo Chemicals Pvt Ltd',user:'Guest',role:'Plant / warehouse manager',demo:true});
+  setTimeout(()=>$('#lgCompany').focus(),50);
+}
+function logout(){ if(!confirm('Switch company? Your data stays saved in this browser for next time.')) return; try{ sessionStorage.removeItem('isa_session'); sessionStorage.removeItem('isa_tab'); }catch(e){} location.reload(); }
+/* ================= HELP — explains the system for THIS company ================= */
+function renderHelp(){
+  const co=SESSION?.company||'your company', has=hasData(), M=has?metrics():[], P=policy(), m=S.meta||{};
+  const done=(ok,txt)=>`<span class="st ${ok?'OK':'NODATA'}" style="margin-left:4px">${ok?'done':'to do'}</span>`;
+  const ex=M.find(x=>x.sugg>0&&x.avg>0)||M.find(x=>x.avg>0)||M[0];
+  const qs=has?['Which items are critical?','What should I reorder this week?',ex?`How much ${ex.name} do we have?`:null,'Which items are fast moving?','What is safety stock?','Chart stock value by category'].filter(Boolean):[];
+  const mappedCols=(m.mapped||[]); const extra=[...new Set(M.flatMap(x=>Object.keys(x.extra||{})))];
+  const cnt=st=>M.filter(x=>x.status===st).length;
+  $('#helpBody').innerHTML=`<div class="help">
+  <div class="card"><h2>How the Inventory &amp; Stock Assistant works for ${esc(co)}</h2>
+    <p class="hint" style="margin-top:0">Everything below is based on ${esc(co)}'s own data and settings in this workspace.</p>
+    <div class="flow">
+      <div><b>Upload your file ${done(has)}</b>Excel / CSV stock list (and movements if you have them). ${has?`Loaded: ${esc(m.files)}`:''}</div>
+      <div><b>Columns understood ${done(has)}</b>The app maps your column names (rules, AI or remembered formats). ${has?`${mappedCols.length} columns mapped.`:''}</div>
+      <div><b>Rules calculate ${done(has)}</b>Sales velocity, days of cover, reorder point and order quantity — fixed formulas, not AI.</div>
+      <div><b>Alerts &amp; reorder plan ${done(has&&M.some(x=>x.status!=='NODATA'))}</b>Critical and low items, order-by dates, CSV for purchase.</div>
+      <div><b>Charts checked ${done(has)}</b>Every possible chart is scored; only approved ones appear on your dashboard.</div>
+      <div><b>Ask the assistant</b>Gemini answers from your data; a rule engine answers if AI is unavailable.</div>
+    </div></div>
+  <div class="grid two">
+  <div class="card"><h3>${esc(co)}'s current setup</h3><dl class="kv">
+    <dt>Data</dt><dd>${has?`${inr(M.length)} items · ${esc(m.files)} · data as of ${fmtDate(m.asOf)}`:'No file uploaded yet — go to Upload Data'}</dd>
+    <dt>Usage history</dt><dd>${has?(m.hasMoves?`Movements found — usage from the last ${m.span} days`:'No dated movements — usage from file columns where available'):'—'}</dd>
+    <dt>Columns used</dt><dd>${mappedCols.length?mappedCols.map(esc).join(', '):'—'}</dd>
+    <dt>Extra columns kept</dt><dd>${extra.length?extra.map(esc).join(', '):'none'}</dd>
+    <dt>Planning rules</dt><dd>Safety ${safetyDays()} days · max = ROP + ${cycleDays()} days · velocity ${Math.round(w7()*100)}% last 7 days + ${100-Math.round(w7()*100)}% 30-day · fast if cover ≤ ${fastDays()} days <span class="hint">(change in Reorder Planner)</span></dd>
+    <dt>Approved chart types</dt><dd>${CATALOG.filter(c=>P[c.id]).length} of ${CATALOG.length} <span class="hint">(Settings › Chart governance)</span></dd>
+    <dt>AI assistant</dt><dd>${aiMode()==='offline'?'Rule engine only (no AI connection)':'Google Gemini via '+(aiMode()==='proxy'?'secure proxy':'own key')}</dd>
+    <dt>Where data is kept</dt><dd>Only in this browser, in ${esc(co)}'s workspace. Nothing is uploaded to a server.</dd>
+  </dl></div>
+  <div class="card"><h3>What the stock statuses mean${has?' — and your counts':''}</h3><dl class="kv">
+    <dt><span class="st CRITICAL">CRITICAL</span></dt><dd>Stock runs out before a new lot can arrive (days of cover &lt; lead time), or stock is zero.${has?` <b>${cnt('CRITICAL')}</b> items.`:''}</dd>
+    <dt><span class="st LOW">LOW</span></dt><dd>Below the reorder point — order by the date shown.${has?` <b>${cnt('LOW')}</b> items.`:''}</dd>
+    <dt><span class="st OK">OK</span></dt><dd>Between reorder point and max level.${has?` <b>${cnt('OK')}</b> items.`:''}</dd>
+    <dt><span class="st EXCESS">EXCESS</span></dt><dd>Above max level or no use in the period — cash locked.${has?` <b>${cnt('EXCESS')}</b> items.`:''}</dd>
+    <dt><span class="st NODATA">NO USAGE DATA</span></dt><dd>No movements, average use or min level for the item.${has?` <b>${cnt('NODATA')}</b> items.`:''}</dd>
+  </dl></div></div>
+  ${ex&&ex.avg>0?`<div class="card"><h3>Worked example from your data: ${esc(ex.name)}</h3><dl class="kv">
+    <dt>Stock</dt><dd>${q2(ex.stock)} ${esc(ex.unit)}</dd>
+    <dt>Sales velocity</dt><dd>${q2(ex.avg)} ${esc(ex.unit)}/day ${ex.v7!=null?`(last 7 days ${q2(ex.v7)}, 30-day ${q2(ex.v30)})`:`(${ex.avgSrc})`}</dd>
+    <dt>Days of cover</dt><dd>${q2(ex.stock)} ÷ ${q2(ex.avg)} = <b>${inr(ex.cover,1)} days</b> → runs out ~${fmtDate(ex.stockoutDate)}</dd>
+    <dt>Reorder point</dt><dd>${ex.min>0?`from your file: ${q2(ex.rop)}`:`${q2(ex.avg)} × (${ex.lead} lead + ${safetyDays()} safety days) = <b>${q2(ex.rop)}</b>`}</dd>
+    <dt>Status</dt><dd>${stPill(ex.status)}${ex.orderBy?` · order by ${ex.slack<=0?'<b>now</b>':fmtDate(ex.orderBy)}`:''}</dd>
+    <dt>Suggested order</dt><dd>${ex.sugg?`max ${q2(ex.max)} − stock ${q2(ex.stock)}${ex.moq?`, rounded to MOQ ${q2(ex.moq)}`:''} = <b>${q2(ex.sugg)} ${esc(ex.unit)}</b>`:'none needed now'}</dd>
+  </dl></div>`:''}
+  ${qs.length?`<div class="card"><h3>Try asking the assistant</h3><div class="qchips">${qs.map(q=>`<button type="button" data-hq="${esc(q)}">${esc(q)}</button>`).join('')}</div></div>`:''}
+  <div class="card faq"><h3>Frequently asked questions</h3>
+    <details><summary>How do I update the data every day / week?</summary><p>Export the latest stock (and movements) from your system and upload it again on the Upload Data page. A file with the same columns is recognised automatically, so it takes one click.</p></details>
+    <details><summary>Why is a chart missing from my dashboard?</summary><p>Charts are shown only if they pass the evaluation engine for your data (enough groups, valid calculation, same units, a real pattern). Open “Chart audit” at the bottom of the Dashboard to see every chart that was checked and why it was skipped.</p></details>
+    <details><summary>Are the reorder quantities decided by AI?</summary><p>No. Quantities come from fixed formulas you can see and change in the Reorder Planner. The AI only explains them and answers questions. A person approves every order.</p></details>
+    <details><summary>Is ${esc(co)}'s data private?</summary><p>The file is read inside your browser and saved only in this browser. When you ask the assistant, your question and a compact summary of relevant items are sent to Google Gemini to write the answer. Use “Clear all data” in Settings on shared computers.</p></details>
+    <details><summary>What does “AI unavailable — answered by rule engine” mean?</summary><p>Gemini was busy or not reachable, so the built-in rules answered. Common questions (alerts, reorder, stock of an item, totals by column) still work.</p></details>
+    <details><summary>Can several companies use this on one computer?</summary><p>Yes. Each company name opens its own workspace with separate data, settings, learned file formats and chat. Use “Switch company” at the bottom of the menu.</p></details>
+    <details><summary>My columns were mapped wrongly — what do I do?</summary><p>On the mapping screen change the dropdowns, or press “Auto-map with AI”. Your corrected mapping is remembered for the next upload.</p></details>
+  </div>
+  <div class="card"><h3>Need a person?</h3><p style="margin:0">Type <b>“talk to store manager”</b> in the chat. A ticket is created in Stock Entry › Escalation tickets.</p></div>
+  </div>`;
+  $$('#helpBody [data-hq]').forEach(b=>b.onclick=()=>{ $('#chat').classList.add('on'); $('#fab').style.display='none'; ask(b.dataset.hq); });
+}
+/* ================= BOOT ================= */
+(function boot(){
+  let sess=null; try{ sess=JSON.parse(sessionStorage.getItem('isa_session')); }catch(e){}
+  if(sess&&sess.company) startApp(sess); else showLogin();
+})();
 </script>
 </body>
 </html>

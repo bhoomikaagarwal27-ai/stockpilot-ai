@@ -5,6 +5,10 @@ MBA AI Applications end-term project · Use case #11 (Inventory/stock query assi
 Upload any company's inventory file (Excel/CSV) → the app maps the columns, builds a stock dashboard and reorder plan, and an AI chatbot (Google Gemini) answers questions about that data.
 
 ## Features
+- Company sign-in page: each company name opens its own workspace (data, settings, learned file formats, chat kept separately in the browser); demo company button
+- Sidebar app layout (Dashboard, Inventory, Reorder Planner, Stock Entry, Upload Data, Help, Settings) that works on desktop and mobile
+- Help page personalised for the signed-in company: how the system works, current setup, status counts, worked reorder example from their data, FAQ
+- Chart reasoning & evaluation engine: only approved charts are shown; click any chart for its numbers
 - Upload .xlsx / .xls / .csv (Tally, SAP, Zoho exports or a stock register); auto column mapping with manual correction
 - Data quality report (skipped rows, duplicates, unmatched items, bad dates)
 - Dashboard: inventory value, critical / low / excess items, days of cover vs lead time, consumption trend, value by category
