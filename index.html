@@ -106,6 +106,12 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--in
 .al .sev.s0{background:var(--crit-bg)}.al .sev.s1{background:var(--serious-bg)}.al .sev.s2{background:var(--warn-bg)}.al .sev.s3{background:var(--none-bg)}
 .al .act{font-weight:600;white-space:nowrap;text-align:right}
 @media (max-width:600px){ .al{grid-template-columns:1fr} .al .act{text-align:left} }
+/* chart evaluation */
+.ev{margin-top:8px;font-size:12px}.ev summary{cursor:pointer;list-style:none}.ev summary::-webkit-details-marker{display:none}
+.vb{display:inline-block;border-radius:99px;padding:2px 9px;font-size:11.5px;font-weight:700}.vb.ok{background:var(--good-bg)}.vb.no{background:var(--crit-bg)}
+.cks{margin:4px 0 0;padding-left:16px}.cks li{margin:2px 0}.cks li.fail b{color:var(--crit)}.cks li.warn b{color:#b07800}.cks li.pass b{color:var(--good)}
+.pol{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--grid);font-size:13px}
+details.card>summary{cursor:pointer}
 /* chat */
 #fab{position:fixed;right:18px;bottom:18px;background:var(--brand);color:#fff;border:0;border-radius:99px;padding:12px 18px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;z-index:20}
 #chat{position:fixed;right:18px;bottom:18px;width:400px;max-width:calc(100vw - 32px);height:600px;max-height:calc(100vh - 36px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.3);display:none;flex-direction:column;z-index:30;overflow:hidden}
@@ -196,9 +202,8 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--in
   </div>
   <div class="grid kpis" id="kpis"></div>
   <div class="grid two" style="margin-top:12px">
-    <div class="card"><h3 id="coverTitle">Most at-risk items</h3><div class="chartbox" id="coverBox"><canvas id="cCover"></canvas></div>
-      <div class="hint" style="margin-top:6px"><span class="st CRITICAL">CRITICAL</span> <span class="st LOW">LOW</span> <span class="st OK">OK</span> <span class="st EXCESS">EXCESS</span> <span class="st NODATA">NO USAGE DATA</span></div></div>
-    <div class="card"><h3 id="trendTitle">Daily issues</h3><div class="chartbox"><canvas id="cTrend"></canvas></div></div>
+    <div class="card"><h3 id="t1"></h3><div class="chartbox" id="b1"><canvas id="c1"></canvas></div><div id="e1"></div></div>
+    <div class="card"><h3 id="t2"></h3><div class="chartbox" id="b2"><canvas id="c2"></canvas></div><div id="e2"></div></div>
   </div>
   <div class="grid two" style="margin-top:12px">
     <div class="card">
@@ -206,19 +211,24 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--in
       <div class="toolbar"><button class="btn" id="briefBtn">Generate briefing</button><span class="badge" id="briefSrc"></span></div>
       <div class="ai-out" id="briefOut"><span class="hint">Click “Generate briefing” for a short summary of stock risks and actions.</span></div>
     </div>
-    <div class="card"><h3 id="catTitle">Stock value by category</h3><div class="chartbox"><canvas id="cCat"></canvas></div></div>
+    <div class="card"><h3 id="t3"></h3><div class="chartbox" id="b3"><canvas id="c3"></canvas></div><div id="e3"></div></div>
   </div>
   <div class="card" style="margin-top:12px">
-    <div class="toolbar"><h3 style="margin:0;flex:1">Build your own chart <span class="hint">uses every column in your file · or ask the chat, e.g. “chart stock value by supplier”</span></h3></div>
+    <div class="toolbar"><h3 style="margin:0;flex:1">Build your own chart <span class="hint">every chart is checked by the evaluation engine before it is drawn · or ask the chat, e.g. “chart stock value by supplier”</span></h3></div>
     <div class="toolbar">
       <label class="f">Measure<select id="bM"></select></label>
       <label class="f">Group by<select id="bG"></select></label>
       <label class="f">Calculation<select id="bA"><option value="sum">Sum</option><option value="avg">Average</option><option value="max">Maximum</option><option value="count">Count of items</option></select></label>
       <label class="f">Show<select id="bN"><option value="10">Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option></select></label>
     </div>
+    <div style="font-weight:600;font-size:13px;margin:4px 0" id="bTitle"></div>
     <div class="chartbox" id="buildBox"><canvas id="cBuild"></canvas></div>
-    <div class="hint" id="buildNote"></div>
+    <div id="bEval"></div>
   </div>
+  <div class="grid two" id="pinned" style="margin-top:12px"></div>
+  <details class="card" id="auditCard" style="margin-top:12px"><summary><b>Chart audit</b> <span class="hint" id="auditSum"></span></summary>
+    <p class="hint">Every chart the data allows is generated, checked against the rules below, and only approved charts are drawn. Rules: approved chart type · at least 2 groups (7 points for a trend) · ≥50% data coverage · valid calculation (no adding days, rates or IDs) · same units when adding quantities · values must vary · no single bar ≥95% (warning) · decision relevance.</p>
+    <div class="tablewrap" id="audit"></div></details>
 </section>
 
 <!-- INVENTORY -->
@@ -306,6 +316,11 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--in
         <div class="toolbar" style="margin-top:10px"><button class="btn" type="submit">Save</button><button class="btn ghost" type="button" id="testBtn">Test connection</button><button class="btn ghost" type="button" id="clearKey">Remove key</button></div>
         <div id="setMsg" class="hint"></div>
       </form>
+    </div>
+    <div class="card">
+      <h3>Chart governance — approved charts</h3>
+      <p class="hint" style="margin-top:0">Only chart types ticked here can appear on the dashboard, and each one must also pass the evaluation engine for the current data.</p>
+      <div id="policy"></div>
     </div>
     <div class="card">
       <h3>Your data &amp; privacy</h3>
@@ -729,7 +744,7 @@ function metrics(){
 /* ============ rendering ============ */
 let charts={};
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-function mkChart(id,cfg){ if(!window.Chart) return; const el=document.getElementById(id); if(!el) return; if(charts[id]) charts[id].destroy(); Chart.defaults.font.family='system-ui,-apple-system,"Segoe UI",sans-serif'; Chart.defaults.color=css('--ink-2'); Chart.defaults.borderColor=css('--grid'); charts[id]=new Chart(el,cfg); }
+function mkChart(id,cfg){ if(!window.Chart) return; const el=document.getElementById(id); if(!el) return; if(charts[id]) charts[id].destroy(); Chart.defaults.font.family='system-ui,-apple-system,"Segoe UI",sans-serif'; Chart.defaults.animation={duration:250}; Chart.defaults.transitions.resize={animation:{duration:0}}; Chart.defaults.color=css('--ink-2'); Chart.defaults.borderColor=css('--grid'); charts[id]=new Chart(el,cfg); }
 const histLabels=n=>Array.from({length:n},(_,i)=>new Date(S.meta.asOf-(n-1-i)*DAY).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}));
 const stPill=s=>`<span class="st ${s}">${s==='NODATA'?'NO USAGE DATA':s}</span>`;
 const stColor={CRITICAL:'#d03b3b',LOW:'#ec835a',OK:'#0ca30c',EXCESS:'#fab219',NODATA:'#898781'};
@@ -789,111 +804,241 @@ function renderKPIs(M){
   ];
   $('#kpis').innerHTML=k.map(([l,v,f])=>`<div class="card kpi"><div class="lbl">${l}</div><div class="val">${v}</div><div class="foot">${esc(f)}</div></div>`).join('');
 }
-/* ---------- adaptive charts: each slot picks the best chart the uploaded columns allow ---------- */
-function hbar(id, rows, {label, fmt=v=>q2(v), colors=null, marker=null, markerLabel='', box=null, xTitle=''}){
-  if(box) box.style.height=Math.max(220, rows.length*24+60)+'px';
-  const ds=[{type:'bar',order:2,label,data:rows.map(r=>r.v),backgroundColor:colors?rows.map(colors):css('--s1'),borderRadius:4,borderSkipped:'start',barPercentage:.7}];
-  if(marker) ds.push({type:'scatter',order:1,label:markerLabel,data:rows.map(r=>({x:marker(r),y:r.l})),pointStyle:'rectRot',pointRadius:7,pointHoverRadius:9,backgroundColor:css('--ink'),borderColor:css('--surface'),borderWidth:2});
-  mkChart(id,{type:'bar',data:{labels:rows.map(r=>r.l),datasets:ds},options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.datasetIndex===0?` ${fmt(c.raw)}${rows[c.dataIndex].t?' · '+rows[c.dataIndex].t:''}`:` ${markerLabel}: ${q2(c.raw.x)}`}}},scales:{x:{beginAtZero:true,title:{display:!!xTitle,text:xTitle},ticks:{callback:v=>fmt(v)}},y:{grid:{display:false},ticks:{autoSkip:false,font:{size:11}}}}}});
-}
-function dims(M){
-  const D=[];
-  const add=(key,label,get)=>{ const d=new Set(M.map(get).filter(v=>v!==''&&v!=null)); if(d.size>=2&&d.size<=50) D.push({key,label,get,n:d.size}); };
-  add('cat','Category',x=>x.cat==='Uncategorised'?'':x.cat); add('vendor','Supplier',x=>x.vendor); add('status','Status',x=>x.status==='NODATA'?'No usage data':x.status);
-  add('fsn','Movement (F/S/N)',x=>({F:'Fast',S:'Slow',N:'Non-moving'}[x.fsn]||'')); add('unit','Unit',x=>x.unit);
-  const used=new Set(Object.values(S.meta.quality?.mapMaster||{}));
-  const heads=[...new Set(M.flatMap(x=>Object.keys(x.raw||{})))];
-  const mapped=new Set(S.meta.mapped||[]);
-  heads.filter(h=>!mapped.has(h)).forEach(h=>{ const vals=M.map(x=>x.raw?.[h]).filter(v=>v!=null); if(vals.length && vals.every(v=>typeof v==='string')) add('raw:'+h,h,x=>x.raw?.[h]??''); });
-  D.push({key:'item',label:'Item',get:x=>x.name,n:M.length});
-  // drop raw columns that just repeat a mapped field (same grouping as category/supplier/item)
-  return D.filter((d,i)=>!(d.key.startsWith('raw:') && D.some(o=>!o.key.startsWith('raw:') && o.key!=='item' && o.n===d.n && M.every(x=>o.get(x)===d.get(x)))) && !(d.key.startsWith('raw:') && d.n===M.length));
-}
+/* =====================================================================
+   CHART REASONING & EVALUATION ENGINE
+   1. Candidate generation – builds every chart the uploaded columns allow
+   2. Evaluation – each candidate is checked against data-visualisation rules
+      (sufficiency, coverage, aggregation validity, unit consistency, variation,
+       dominance, cardinality, identifier misuse, chart-type fit, policy)
+   3. Approval – only APPROVED charts (no failed check, score ≥ 60, chart type
+      on the approved list) are drawn on the dashboard. Rejected charts show the
+      reasons and, where possible, an approved alternative.
+   ===================================================================== */
+const POLICY_KEY='isa_chart_policy_v1';
+const CATALOG=[
+ {id:'risk_cover', name:'Days of cover vs lead time', type:'Ranked bar + threshold', purpose:'Shows which items will run out before a new lot can arrive.'},
+ {id:'stock_rop',  name:'Stock vs reorder level',     type:'Ranked bar + threshold', purpose:'Shows how far each item is from its reorder level.'},
+ {id:'trend',      name:'Daily consumption trend',    type:'Line over time',         purpose:'Shows whether demand is rising, falling or spiking.'},
+ {id:'status_mix', name:'Items by stock status',      type:'Bar (counts)',           purpose:'Shows how many items need action.'},
+ {id:'by_group',   name:'Value / quantity by group',  type:'Ranked bar',             purpose:'Shows where stock (money) is concentrated.'},
+ {id:'top_items',  name:'Top items',                  type:'Ranked bar',             purpose:'Shows the largest items by value, quantity or order need.'},
+ {id:'custom',     name:'Custom charts (builder & chat)', type:'Ranked bar',         purpose:'User-defined comparisons that pass every check.'},
+];
+const BANNED_TYPES=['Pie / donut','3-D charts','Dual-axis charts','Stacked charts of mixed units'];
+function policy(){ const p=safeGet(POLICY_KEY)||{}; return Object.fromEntries(CATALOG.map(c=>[c.id,p[c.id]!==false])); }
+function setPolicy(id,on){ const p=safeGet(POLICY_KEY)||{}; p[id]=on; safeSet(POLICY_KEY,p); }
+
+const ID_RE=/\b(code|id|sku|no|number|pin|phone|mobile|zip|year|serial)\b/i;
+const NONADD_RE=/day|days|rate|price|cost per|percent|%|lead|age|ratio|cover|margin|temp/i;
 function measures(M){
   const hasRate=M.some(x=>x.rate>0), out=[];
-  const add=(key,label,get,money)=>{ if(M.some(x=>{const v=get(x); return v!=null&&isFinite(v)&&v!==0;})) out.push({key,label,get,money}); };
-  if(hasRate) add('value','Stock value (₹)',x=>x.value,true);
-  add('stock','Stock quantity',x=>x.stock); add('avg','Sales velocity /day',x=>x.avg); add('cover','Days of cover',x=>x.cover);
-  add('sugg','Suggested order qty',x=>x.sugg); if(hasRate) add('orderValue','Suggested order value (₹)',x=>x.orderValue,true);
-  add('rop','Reorder point',x=>x.rop); add('lead','Lead time (days)',x=>x.lead); if(hasRate) add('rate','Rate (₹)',x=>x.rate,true);
-  const heads=[...new Set(M.flatMap(x=>Object.keys(x.raw||{})))];
-  const mapped=new Set(S.meta.mapped||[]);
-  heads.filter(h=>!mapped.has(h) && !/\b(code|id|sku|no|number|pin|phone|mobile|zip|year)\b/i.test(h)).forEach(h=>{ const vals=M.map(x=>x.raw?.[h]).filter(v=>v!=null); if(vals.length>=Math.max(1,M.length*0.5) && vals.every(v=>typeof v==='number') && !out.some(o=>M.every(x=>{const a=o.get(x),b=x.raw?.[h]; return b==null||a===b;}))) add('raw:'+h,h+' (from file)',x=>x.raw?.[h]??null, /value|amount|price|cost|rate|₹|inr|rs/i.test(h)); });
+  const add=(key,label,get,o={})=>{ if(M.some(x=>{const v=get(x); return v!=null&&isFinite(v)&&v!==0;})) out.push({key,label,get,money:!!o.money,additive:o.additive!==false,unitBased:!!o.unitBased,relevance:o.relevance||0}); };
+  if(hasRate) add('value','Stock value (₹)',x=>x.value,{money:true,relevance:3});
+  add('stock','Stock quantity',x=>x.stock,{unitBased:true,relevance:2});
+  add('avg','Sales velocity /day',x=>x.avg,{unitBased:true,relevance:3});
+  add('cover','Days of cover',x=>x.cover,{additive:false,relevance:3});
+  add('sugg','Suggested order qty',x=>x.sugg||null,{unitBased:true,relevance:3});
+  if(hasRate) add('orderValue','Suggested order value (₹)',x=>x.orderValue||null,{money:true,relevance:3});
+  add('rop','Reorder point',x=>x.rop,{unitBased:true,relevance:1});
+  add('lead','Lead time (days)',x=>x.lead,{additive:false,relevance:2});
+  if(hasRate) add('rate','Rate (₹)',x=>x.rate,{money:true,additive:false,relevance:1});
+  const mapped=new Set(S.meta.mapped||[]), heads=[...new Set(M.flatMap(x=>Object.keys(x.raw||{})))];
+  heads.filter(h=>!mapped.has(h)).forEach(h=>{ const vals=M.map(x=>x.raw?.[h]).filter(v=>v!=null);
+    if(vals.length && vals.every(v=>typeof v==='number')) add('raw:'+h,h+' (from file)',x=>x.raw?.[h]??null,{money:/value|amount|price|cost|₹|inr|\brs\b/i.test(h),additive:!NONADD_RE.test(h),idLike:ID_RE.test(h),relevance:0});
+    const o=out.find(m=>m.key==='raw:'+h); if(o) o.idLike=ID_RE.test(h); });
   return out;
 }
-function aggregate(M, m, d, how, topN){
-  const g=new Map(); M.forEach(x=>{ const k=d.get(x); if(k===''||k==null) return; const v=m?m.get(x):null; const e=g.get(k)||{l:String(k),sum:0,n:0,max:-Infinity,cnt:0}; e.cnt++; if(v!=null&&isFinite(v)){ e.sum+=v; e.n++; e.max=Math.max(e.max,v); } g.set(k,e); });
-  let rows=[...g.values()].map(e=>({l:short(e.l),full:e.l,v: how==='count'?e.cnt : how==='avg'?(e.n?e.sum/e.n:0) : how==='max'?(e.n?e.max:0) : e.sum}));
-  rows.sort((a,b)=>b.v-a.v); const extra=rows.length-topN; rows=rows.slice(0,topN); rows.forEach(r=>r.v=+r.v.toFixed(2)); return {rows,extra};
+function dims(M){
+  const D=[]; const add=(key,label,get)=>{ const d=new Set(M.map(get).filter(v=>v!==''&&v!=null)); if(d.size>=1) D.push({key,label,get,n:d.size}); };
+  add('cat','Category',x=>x.cat==='Uncategorised'?'':x.cat); add('vendor','Supplier',x=>x.vendor); add('status','Status',x=>x.status==='NODATA'?'No usage data':x.status);
+  add('fsn','Movement (F/S/N)',x=>({F:'Fast',S:'Slow',N:'Non-moving'}[x.fsn]||'')); add('unit','Unit',x=>x.unit);
+  const mapped=new Set(S.meta.mapped||[]), heads=[...new Set(M.flatMap(x=>Object.keys(x.raw||{})))];
+  heads.filter(h=>!mapped.has(h)).forEach(h=>{ const vals=M.map(x=>x.raw?.[h]).filter(v=>v!=null); if(vals.length && vals.every(v=>typeof v==='string')) add('raw:'+h,h,x=>x.raw?.[h]??''); });
+  D.push({key:'item',label:'Item',get:x=>x.name,n:M.length,isItem:true});
+  return D.filter(d=>!(d.key.startsWith('raw:') && (d.n===M.length || D.some(o=>!o.key.startsWith('raw:')&&!o.isItem&&o.n===d.n&&M.every(x=>o.get(x)===d.get(x))))));
 }
-const money=v=>v>=1e7?'₹'+inr(v/1e7,1)+' Cr':v>=1e5?'₹'+inr(v/1e5,1)+' L':'₹'+inr(v);
+function aggregate(M, m, d, how, topN){
+  const g=new Map(); M.forEach(x=>{ const k=d.get(x); if(k===''||k==null) return; const v=m?m.get(x):null; const e=g.get(k)||{l:String(k),sum:0,n:0,max:-Infinity,cnt:0,units:new Set()}; e.cnt++; e.units.add(x.unit); if(v!=null&&isFinite(v)){ e.sum+=v; e.n++; e.max=Math.max(e.max,v); } g.set(k,e); });
+  let rows=[...g.values()].map(e=>({l:short(e.l),full:e.l,units:e.units,v: how==='count'?e.cnt : how==='avg'?(e.n?e.sum/e.n:0) : how==='max'?(e.n?e.max:0) : e.sum}));
+  rows.sort((a,b)=>b.v-a.v); const total=rows.length; rows=rows.slice(0,topN); rows.forEach(r=>r.v=+r.v.toFixed(2)); return {rows,total};
+}
+const money=v=>Math.abs(v)>=1e7?'₹'+inr(v/1e7,1)+' Cr':Math.abs(v)>=1e5?'₹'+inr(v/1e5,1)+' L':'₹'+inr(v);
+const HOW={sum:'Sum',avg:'Average',max:'Maximum',count:'Count'};
+
+/* ---- spec builders (candidate generation) ---- */
+function specCustom(M, mKey, gKey, how, topN, catalogId='custom'){
+  const m=measures(M).find(x=>x.key===mKey), d=dims(M).find(x=>x.key===gKey); if(!d||(!m&&how!=='count')) return null;
+  const {rows,total}=aggregate(M,how==='count'?null:m,d,how,topN);
+  const cov=m?M.filter(x=>{const v=m.get(x); return v!=null&&isFinite(v);}).length/M.length:1;
+  return {catalog:catalogId, kind:'hbar', cfg:{m:mKey,g:gKey,a:how,n:topN}, m, d, how, rows, total, coverage:cov,
+    title:`${how==='count'?'Number of items':(how==='sum'?'':HOW[how]+' ')+m.label} by ${d.label.toLowerCase()}`, fmt:(m&&m.money&&how!=='count')?money:q2, question:`Which ${d.label.toLowerCase()} has the most ${how==='count'?'items':m.label.toLowerCase()}?`};
+}
+function candidates(M){
+  const C=[], hasRate=M.some(x=>x.rate>0), D=dims(M);
+  const rk=M.filter(x=>x.cover!=null).sort((a,b)=>(a.cover/a.lead)-(b.cover/b.lead));
+  C.push({catalog:'risk_cover',slot:1,kind:'hbar',title:'Most at-risk items: days of cover vs lead time',hint:'bar = days stock will last · ◆ = lead time',
+    rows:rk.slice(0,15).map(x=>({l:short(x.name),full:x.name,v:+Math.min(x.cover,90).toFixed(1),c:stColor[x.status],mk:x.lead,t:x.status})),total:rk.length,coverage:rk.length/M.length,
+    m:{label:'Days of cover',additive:false,relevance:3},how:'none',fmt:v=>inr(v,1)+' d',marker:'Lead time',question:'Which items will run out before the supplier can deliver?',legend:true});
+  const rl=M.filter(x=>x.rop>0).sort((a,b)=>(a.stock/a.rop)-(b.stock/b.rop));
+  C.push({catalog:'stock_rop',slot:1,kind:'hbar',title:'Stock vs reorder level',hint:'bar = stock in hand · ◆ = reorder level',
+    rows:rl.slice(0,15).map(x=>({l:short(x.name),full:x.name,v:+x.stock.toFixed(2),c:stColor[x.status],mk:x.rop,t:x.status+' · '+x.unit})),total:rl.length,coverage:rl.length/M.length,
+    m:{label:'Stock',additive:true,unitBased:true,relevance:2},how:'none',fmt:q2,marker:'Reorder level',question:'Which items are below or near their reorder level?',legend:true,perItem:true});
+  if(S.meta.hasMoves){ const n=Math.max(2,Math.min(60,S.meta.histLen||60)), L=histLabels(n);
+    const vals=L.map((_,i)=>{ const k=HIST_DAYS-n+i; return +M.reduce((a,x)=>a+(x.hist?x.hist[k]*(hasRate?x.rate:1):0),0).toFixed(2); });
+    C.push({catalog:'trend',slot:2,kind:'line',title:hasRate?'Daily consumption value':'Daily issues (quantity)',hint:hasRate?`₹, all items, last ${n} days`:`all items, last ${n} days`,
+      rows:L.map((l,i)=>({l,v:vals[i]})),total:n,coverage:M.filter(x=>x.hist).length/M.length,m:{label:hasRate?'Consumption value':'Quantity issued',additive:true,unitBased:!hasRate,money:hasRate,relevance:3},how:'sum',
+      unitsMixed:!hasRate&&new Set(M.filter(x=>x.hist).map(x=>x.unit)).size>1,fmt:hasRate?money:q2,question:'Is demand rising, falling or spiking?'}); }
+  const sts=['CRITICAL','LOW','OK','EXCESS','NODATA'].filter(s=>M.some(x=>x.status===s));
+  C.push({catalog:'status_mix',slot:2,kind:'bar',title:'Items by stock status',hint:'count of items',rows:sts.map(s=>({l:s==='NODATA'?'No usage data':s[0]+s.slice(1).toLowerCase(),v:M.filter(x=>x.status===s).length,c:stColor[s]})),total:sts.length,coverage:1,
+    m:{label:'Items',additive:true,relevance:2},how:'count',fmt:v=>inr(v),question:'How many items need action?'});
+  D.filter(d=>!d.isItem).forEach(d=>{ const s=specCustom(M,hasRate?'value':'stock',d.key,'sum',10,'by_group'); if(s){ s.slot=3; C.push(s);} });
+  ['value','stock','sugg'].forEach(k=>{ const s=specCustom(M,k,'item','sum',10,'top_items'); if(s){ s.slot=k==='sugg'?2:3; C.push(s);} });
+  return C;
+}
+
+/* ---- evaluation ---- */
+function evaluate(sp, M){
+  const ck=[]; const P=policy(); let score=100, fix=null;
+  const add=(name,status,msg,pen=0)=>{ ck.push({name,status,msg}); score-=pen; };
+  if(!P[sp.catalog]) add('Approved chart list','fail',`“${CATALOG.find(c=>c.id===sp.catalog)?.name}” is switched off in Settings › Chart governance.`,100);
+  else add('Approved chart list','pass',`${CATALOG.find(c=>c.id===sp.catalog)?.type} — an approved chart type.`);
+  const n=sp.rows.length;
+  if(sp.kind==='line'){ if(n<7) add('Enough data points','fail',`Only ${n} days of history — a trend needs at least 7.`,50); else add('Enough data points','pass',`${n} daily points.`); }
+  else if(n<2) add('Enough groups to compare','fail',`Only ${n} bar — a chart needs at least 2 things to compare.`,50);
+  else add('Enough groups to compare','pass',`${n} bars${sp.total>n?` (top ${n} of ${sp.total})`:''}.`);
+  const cov=sp.coverage??1;
+  if(cov<0.5) add('Data coverage','fail',`Only ${inr(cov*100)}% of items have this value — the chart would mislead.`,50);
+  else if(cov<0.8) add('Data coverage','warn',`${inr(cov*100)}% of items have this value; the rest are left out.`,10);
+  else add('Data coverage','pass',`${inr(cov*100)}% of items have this value.`);
+  if(sp.m && sp.m.idLike) add('Meaningful measure','fail',`“${sp.m.label}” looks like an identifier (code/number); adding or averaging it means nothing.`,60);
+  if(sp.d?.isItem && sp.how!=='count') add('Valid calculation','pass','One value per item — no aggregation involved.');
+  else if(sp.how==='sum' && sp.m && sp.m.additive===false){ add('Valid calculation','fail',`Adding up “${sp.m.label}” across items has no meaning — use Average or Maximum.`,60); if(sp.cfg) fix={...sp.cfg,a:'avg'}; }
+  else if(sp.how==='count' && sp.d?.isItem) { add('Valid calculation','fail','Counting items per item is always 1.',60); if(sp.cfg) fix={...sp.cfg,a:'sum',m:measures(M)[0]?.key}; }
+  else add('Valid calculation','pass', sp.how==='none'?'Values shown per item, no aggregation.':`${HOW[sp.how]||'Sum'} is valid for this measure.`);
+  if(sp.m?.unitBased && (sp.how==='sum'||sp.how==='avg') && !sp.perItem){
+    const mixed = sp.unitsMixed || (sp.rows||[]).some(r=>r.units && r.units.size>1);
+    const across = new Set((sp.rows||[]).flatMap(r=>r.units?[...r.units]:[]));
+    if(!mixed && across.size>1){ add('Same units','fail',`Bars are in different units (${[...across].slice(0,4).join(' vs ')}) so their heights can't be compared.`,60);
+      if(sp.cfg){ const hasV=measures(M).some(m=>m.key==='value'); fix = hasV?{...sp.cfg,m:'value'}:null; } }
+    else if(mixed){ const us=[...new Set(M.map(x=>x.unit))].slice(0,4).join(', '); add('Same units','fail',`Bars add quantities in different units (${us}) — kg and pieces can't be added.`,60);
+      if(sp.cfg){ const hasV=measures(M).some(m=>m.key==='value'); fix = hasV?{...sp.cfg,m:'value'}:{...sp.cfg,g:'unit'}; } }
+    else add('Same units','pass','Every bar uses a single unit.');
+  }
+  const vals=sp.rows.map(r=>r.v).filter(v=>isFinite(v));
+  if(vals.length>1 && Math.max(...vals)===Math.min(...vals)) add('Shows variation','fail','All bars are equal — the chart carries no insight.',50);
+  else if(vals.length>1) add('Shows variation','pass',`Values range from ${sp.fmt(Math.min(...vals))} to ${sp.fmt(Math.max(...vals))}.`);
+  if(sp.kind!=='line' && sp.how!=='none' && vals.length>1 && vals.every(v=>v>=0)){ const tot=vals.reduce((a,b)=>a+b,0); const top=Math.max(...vals)/(tot||1);
+    if(top>=0.95) add('Balance','warn',`One bar holds ${inr(top*100)}% of the total — other bars will be barely visible.`,15); }
+  if(vals.some(v=>v<0)) add('Negative values','warn','Some values are negative (check stock entries in the source system).',10);
+  if(sp.total>sp.rows.length && sp.kind!=='line') add('Readability','warn',`${sp.total} groups — only the top ${sp.rows.length} are shown.`,5);
+  add('Chart type fit','pass', sp.kind==='line'?'Line chart for a time series.':'Ranked horizontal bars for comparing categories (no pie, 3-D or dual axis).');
+  const rel=sp.m?.relevance||0; if(rel>=3) add('Decision relevance','pass','Directly supports a stock or ordering decision.'); else if(rel===0) { add('Decision relevance','warn','Not linked to a stock decision — informative only.',5); }
+  score=Math.max(0,Math.min(100,score));
+  const failed=ck.some(c=>c.status==='fail'), verdict=failed?'REJECTED':score>=60?'APPROVED':'REJECTED';
+  return {verdict,score,checks:ck,fix};
+}
+
+/* ---- rendering of approved charts ---- */
+function drawSpec(cid, box, sp){
+  if(!document.getElementById(cid)) box.innerHTML=`<canvas id="${cid}"></canvas>`;
+  if(sp.kind==='line'){ box.style.height='280px';
+    mkChart(cid,{type:'line',data:{labels:sp.rows.map(r=>r.l),datasets:[{data:sp.rows.map(r=>r.v),borderColor:css('--s1'),backgroundColor:css('--s1'),borderWidth:2,pointRadius:0,pointHoverRadius:5,tension:.25}]},
+      options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+sp.fmt(c.parsed.y)}}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,maxRotation:0}},y:{beginAtZero:true,ticks:{callback:v=>sp.fmt(v)}}}}}); return; }
+  const horiz=sp.kind==='hbar'||sp.rows.length>5; box.style.height=(horiz?Math.max(220,sp.rows.length*24+60):280)+'px';
+  const ds=[{type:'bar',order:2,data:sp.rows.map(r=>r.v),backgroundColor:sp.rows.map(r=>r.c||css('--s1')),borderRadius:4,borderSkipped:'start',barPercentage:.7}];
+  if(sp.marker) ds.push({type:'scatter',order:1,label:sp.marker,data:sp.rows.map(r=>horiz?{x:r.mk,y:r.l}:{x:r.l,y:r.mk}),pointStyle:'rectRot',pointRadius:7,pointHoverRadius:9,backgroundColor:css('--ink'),borderColor:css('--surface'),borderWidth:2});
+  const vAx={beginAtZero:true,ticks:{callback:v=>sp.fmt(v)}}, cAx={grid:{display:false},ticks:{autoSkip:false,font:{size:11}}};
+  mkChart(cid,{type:'bar',data:{labels:sp.rows.map(r=>r.l),datasets:ds},options:{indexAxis:horiz?'y':'x',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>sp.rows[c[0].dataIndex].full||sp.rows[c[0].dataIndex].l,label:c=>c.datasetIndex===0?' '+sp.fmt(c.raw)+(sp.rows[c.dataIndex].t?' · '+sp.rows[c.dataIndex].t:''):` ${sp.marker}: ${sp.fmt(horiz?c.raw.x:c.raw.y)}`}}},scales:horiz?{x:vAx,y:cAx}:{x:cAx,y:vAx}}});
+}
+function evalBadge(ev, sp, extra=''){
+  const cls=ev.verdict==='APPROVED'?'ok':'no', icon=ev.verdict==='APPROVED'?'✓':'✕';
+  return `<details class="ev"><summary><span class="vb ${cls}">${icon} ${ev.verdict==='APPROVED'?'Approved':'Not approved'} · ${ev.score}/100</span> <span class="hint">Why?</span>${extra}</summary>
+    <div class="hint" style="margin:4px 0">${esc(sp.question||'')}</div><ul class="cks">${ev.checks.map(c=>`<li class="${c.status}"><b>${c.status==='pass'?'✓':c.status==='warn'?'!':'✕'} ${esc(c.name)}:</b> ${esc(c.msg)}</li>`).join('')}</ul></details>`;
+}
+let lastAudit=[];
 function renderCharts(M){
   if(!window.Chart) return;
-  const hasRate=M.some(x=>x.rate>0), box=$('#coverBox');
-  if(!document.getElementById('cCover')) box.innerHTML='<canvas id="cCover"></canvas>';
-  // slot 1 — risk view: best available of (cover vs lead) → (stock vs reorder level) → (largest items)
-  const rk=M.filter(x=>x.cover!=null).sort((a,b)=>(a.cover/a.lead)-(b.cover/b.lead)).slice(0,15);
-  const rl=M.filter(x=>x.rop>0).sort((a,b)=>(a.stock/a.rop)-(b.stock/b.rop)).slice(0,15);
-  if(rk.length){ $('#coverTitle').innerHTML='Most at-risk items: days of cover vs lead time <span class="hint">bar = days stock will last · ◆ = lead time</span>';
-    hbar('cCover', rk.map(x=>({l:short(x.name),v:+Math.min(x.cover,90).toFixed(1),x,t:x.status})), {label:'Days of cover',fmt:v=>inr(v,1)+' d',colors:r=>stColor[r.x.status],marker:r=>r.x.lead,markerLabel:'Lead time',box,xTitle:'days'}); }
-  else if(rl.length){ $('#coverTitle').innerHTML='Stock vs reorder level <span class="hint">bar = stock in hand · ◆ = reorder level (from your file)</span>';
-    hbar('cCover', rl.map(x=>({l:short(x.name),v:+x.stock.toFixed(2),x,t:x.status+' · '+x.unit})), {label:'Stock',colors:r=>stColor[r.x.status],marker:r=>r.x.rop,markerLabel:'Reorder level',box}); }
-  else { const tp=M.slice().sort((a,b)=>(hasRate?b.value-a.value:b.stock-a.stock)).slice(0,15); $('#coverTitle').innerHTML=`Largest items by ${hasRate?'stock value':'quantity'} <span class="hint">add usage or reorder levels to see risk</span>`;
-    hbar('cCover', tp.map(x=>({l:short(x.name),v:+(hasRate?x.value:x.stock).toFixed(2),x,t:x.unit})), {label:hasRate?'Value':'Stock',fmt:hasRate?money:q2,colors:r=>stColor[r.x.status],box}); }
-  // slot 2 — over time if dates exist, else the most informative breakdown
-  const D=dims(M), st=new Set(M.map(x=>x.status));
-  if(S.meta.hasMoves){
-    const n=Math.max(2,Math.min(60,S.meta.histLen||60)), L=histLabels(n);
-    const data=L.map((_,i)=>{ const k=HIST_DAYS-n+i; return M.reduce((a,x)=>a+(x.hist?x.hist[k]*(hasRate?x.rate:1):0),0); });
-    $('#trendTitle').innerHTML = hasRate?`Daily consumption value <span class="hint">₹, all items, last ${n} days</span>`:`Daily issues <span class="hint">total quantity, all items, last ${n} days</span>`;
-    mkChart('cTrend',{type:'line',data:{labels:L,datasets:[{label:hasRate?'Consumption value':'Qty issued',data:data.map(v=>+v.toFixed(2)),borderColor:css('--s1'),backgroundColor:css('--s1'),borderWidth:2,pointRadius:0,pointHoverRadius:5,tension:.25}]},
-      options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>hasRate?` ${money(c.parsed.y)}`:` ${q2(c.parsed.y)}`}}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,maxRotation:0}},y:{beginAtZero:true,ticks:{callback:v=>hasRate?money(v):inr(v)}}}}});
-  } else if(st.size>=2){
-    const sts=['CRITICAL','LOW','OK','EXCESS','NODATA'].filter(x=>st.has(x));
-    $('#trendTitle').innerHTML='Items by status <span class="hint">add dated movements to see the usage trend</span>';
-    mkChart('cTrend',{type:'bar',data:{labels:sts.map(x=>x==='NODATA'?'No usage data':x[0]+x.slice(1).toLowerCase()),datasets:[{data:sts.map(x=>M.filter(i=>i.status===x).length),backgroundColor:sts.map(x=>stColor[x]),borderRadius:4,barPercentage:.6}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{precision:0}}}}});
-  } else {
-    const ms=measures(M), m=ms.find(x=>x.key==='sugg')||ms.find(x=>x.key==='avg')||ms.find(x=>x.key==='stock'), {rows}=aggregate(M,m,{get:x=>x.name},'sum',10);
-    $('#trendTitle').innerHTML=`${m.label} by item <span class="hint">top ${rows.length}</span>`;
-    mkChart('cTrend',{type:'bar',data:{labels:rows.map(r=>r.l),datasets:[{data:rows.map(r=>r.v),backgroundColor:css('--s1'),borderRadius:4,barPercentage:.6}]},options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(m.money?money(c.raw):q2(c.raw))}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>m.money?money(v):q2(v)}},y:{grid:{display:false}}}}});
-  }
-  // slot 3 — value (or count) by the best grouping column the file has: category → supplier → any text column → item
-  const grp=D.find(d=>d.key==='cat'&&d.n<=15)||D.find(d=>d.key==='vendor'&&d.n<=15)||D.find(d=>d.key.startsWith('raw:')&&d.n<=15)||D.find(d=>d.key==='item');
-  const mm=hasRate?{get:x=>x.value,money:true}:{get:x=>x.stock}; const {rows:cr,extra}=aggregate(M,mm,grp,'sum',10);
-  $('#catTitle').innerHTML=`${hasRate?'Stock value':'Stock quantity'} by ${grp.label.toLowerCase()} <span class="hint">${extra>0?'top 10 of '+(cr.length+extra):''}</span>`;
-  const horiz=cr.length>5;
-  mkChart('cCat',{type:'bar',data:{labels:cr.map(r=>r.l),datasets:[{data:cr.map(r=>r.v),backgroundColor:css('--s1'),borderRadius:4,barPercentage:.6}]},
-    options:{indexAxis:horiz?'y':'x',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+(hasRate?money(c.raw):q2(c.raw))}}},scales:{x:{beginAtZero:true,grid:{display:horiz},ticks:{callback:function(v){return horiz?(hasRate?money(v):q2(v)):this.getLabelForValue(v);}}},y:{beginAtZero:true,grid:{display:!horiz},ticks:{callback:function(v){return horiz?this.getLabelForValue(v):(hasRate?money(v):q2(v));}}}}}});
-  renderBuilder(M);
+  const C=candidates(M); lastAudit=[]; const used=new Set();
+  C.forEach(sp=>{ sp.ev=evaluate(sp,M); lastAudit.push(sp); });
+  const GP={cat:4,vendor:3,fsn:1,status:0,unit:-3,item:0}; const rank=sp=>sp.ev.score+(sp.m?.relevance||0)*3+(sp.d?(GP[sp.d.key]??2):0);
+  [1,2,3].forEach(slot=>{
+    const pick=C.filter(sp=>sp.slot===slot&&sp.ev.verdict==='APPROVED'&&!used.has(sp)).sort((a,b)=>rank(b)-rank(a))[0];
+    const box=$('#b'+slot), cid='c'+slot;
+    if(pick){ used.add(pick); pick.shown='Dashboard slot '+slot; $('#t'+slot).innerHTML=`${esc(pick.title)} <span class="hint">${esc(pick.hint||'')}</span>`; drawSpec(cid,box,pick);
+      $('#e'+slot).innerHTML=(pick.legend?'<div class="hint" style="margin-top:6px"><span class="st CRITICAL">CRITICAL</span> <span class="st LOW">LOW</span> <span class="st OK">OK</span> <span class="st EXCESS">EXCESS</span> <span class="st NODATA">NO USAGE DATA</span></div>':'')+evalBadge(pick.ev,pick); }
+    else { if(charts[cid]){charts[cid].destroy(); delete charts[cid];} box.style.height='auto';
+      const rej=C.filter(sp=>sp.slot===slot).sort((a,b)=>b.ev.score-a.ev.score)[0];
+      $('#t'+slot).textContent='No approved chart for this data';
+      box.innerHTML=`<div class="empty">The engine checked ${C.filter(sp=>sp.slot===slot).length} possible chart(s) here and none passed.${rej?`<br>Closest: “${esc(rej.title)}” — ${esc(rej.ev.checks.find(c=>c.status==='fail')?.msg||'score too low')}`:''}</div>`; $('#e'+slot).innerHTML=''; }
+  });
+  renderBuilder(M); renderPinned(M); renderAudit();
 }
+function renderAudit(){
+  const A=lastAudit.slice().sort((a,b)=>(b.ev.verdict==='APPROVED')-(a.ev.verdict==='APPROVED')||b.ev.score-a.ev.score);
+  const ok=A.filter(a=>a.ev.verdict==='APPROVED').length;
+  $('#auditSum').textContent=`${A.length} charts evaluated · ${ok} approved · ${A.length-ok} rejected`;
+  $('#audit').innerHTML='<table><thead><tr><th>Chart</th><th>Type</th><th class="n">Score</th><th>Verdict</th><th>Main reason</th><th>Where</th></tr></thead><tbody>'+A.map(a=>{ const r=a.ev.checks.find(c=>c.status==='fail')||a.ev.checks.find(c=>c.status==='warn');
+    return `<tr><td>${esc(a.title)}</td><td>${esc(CATALOG.find(c=>c.id===a.catalog)?.type||'')}</td><td class="n">${a.ev.score}</td><td><span class="vb ${a.ev.verdict==='APPROVED'?'ok':'no'}">${a.ev.verdict}</span></td><td class="hint">${esc(r?r.msg:'All checks passed')}</td><td class="hint">${esc(a.shown||'—')}</td></tr>`; }).join('')+'</tbody></table>';
+}
+/* ---- builder: only approved charts are drawn or pinned ---- */
+let builderSpec=null;
 function fillBuilder(M){
-  const ms=measures(M), D=dims(M), c=S.meta.chartCfg||{};
+  const ms=measures(M).filter(m=>!m.idLike), D=dims(M).filter(d=>d.n>=2||d.isItem), c=S.meta.chartCfg||{};
   $('#bM').innerHTML=ms.map(m=>`<option value="${esc(m.key)}">${esc(m.label)}</option>`).join('');
   $('#bG').innerHTML=D.map(d=>`<option value="${esc(d.key)}">${esc(d.label)} (${d.n})</option>`).join('');
-  const pickG=(D.find(d=>d.key===c.g)||D.find(d=>d.key.startsWith('raw:')&&d.n<=20)||D.find(d=>d.key==='vendor')||D.find(d=>d.key==='cat')||D[D.length-1]).key;
-  $('#bM').value=(ms.find(m=>m.key===c.m)||ms.find(m=>m.key.startsWith('raw:'))||ms[0]||{}).key||''; $('#bG').value=pickG; $('#bA').value=c.a||'sum'; $('#bN').value=c.n||'10';
+  $('#bM').value=(ms.find(m=>m.key===c.m)||ms.find(m=>m.key==='value')||ms[0]||{}).key||'';
+  $('#bG').value=(D.find(d=>d.key===c.g)||D.find(d=>d.key.startsWith('raw:')&&d.n<=20)||D.find(d=>d.key==='vendor')||D.find(d=>d.key==='cat')||D[D.length-1]).key;
+  $('#bA').value=c.a||'sum'; $('#bN').value=c.n||'10';
 }
-function renderBuilder(M){
+function renderBuilder(M, cfgOverride){
   M=M||metrics(); if(!$('#bM').options.length) fillBuilder(M);
-  const ms=measures(M), D=dims(M), m=ms.find(x=>x.key===$('#bM').value), d=D.find(x=>x.key===$('#bG').value), how=$('#bA').value, n=+$('#bN').value;
-  if(!d||(!m&&how!=='count')){ $('#buildNote').textContent='Not enough columns to chart.'; return; }
-  const {rows,extra}=aggregate(M,m,d,how,n), isMoney=m&&m.money&&how!=='count';
-  $('#buildBox').style.height=Math.max(240, rows.length*24+60)+'px';
-  mkChart('cBuild',{type:'bar',data:{labels:rows.map(r=>r.l),datasets:[{label:how==='count'?'Items':m.label,data:rows.map(r=>r.v),backgroundColor:css('--s1'),borderRadius:4,barPercentage:.7}]},
-    options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>rows[c[0].dataIndex].full,label:c=>' '+(isMoney?money(c.raw):q2(c.raw))}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>isMoney?money(v):q2(v)}},y:{grid:{display:false},ticks:{autoSkip:false,font:{size:11}}}}}});
-  $('#buildNote').textContent=`${{sum:'Sum',avg:'Average',max:'Maximum',count:'Count'}[how]} of ${how==='count'?'items':m.label} by ${d.label}${extra>0?` · showing top ${rows.length} of ${rows.length+extra}`:''}.`;
-  if(S.meta){ S.meta.chartCfg={m:$('#bM').value,g:$('#bG').value,a:how,n:$('#bN').value}; save(); }
+  if(cfgOverride){ ['m','g','a','n'].forEach((k,i)=>{ if(cfgOverride[k]!=null) $(['#bM','#bG','#bA','#bN'][i]).value=cfgOverride[k]; }); }
+  const sp=specCustom(M,$('#bM').value,$('#bG').value,$('#bA').value,+$('#bN').value); builderSpec=sp;
+  const box=$('#buildBox');
+  if(!sp){ $('#bEval').innerHTML='<span class="hint">Not enough columns to chart.</span>'; return null; }
+  sp.ev=evaluate(sp,M);
+  let extra='';
+  if(sp.ev.verdict==='APPROVED'){ $('#bTitle').textContent=sp.title; drawSpec('cBuild',box,sp); extra=` <button class="btn ghost" type="button" id="pinBtn" style="padding:3px 10px;font-size:12px">＋ Add to dashboard</button>`; }
+  else { if(charts.cBuild){charts.cBuild.destroy(); delete charts.cBuild;} box.style.height='auto'; $('#bTitle').textContent='Chart not approved';
+    let alt=''; if(sp.ev.fix){ const f=specCustom(M,sp.ev.fix.m,sp.ev.fix.g,sp.ev.fix.a,+sp.ev.fix.n); if(f){ f.ev=evaluate(f,M); if(f.ev.verdict==='APPROVED') alt=`<br><button class="btn ghost" type="button" id="fixBtn" style="margin-top:8px">Use approved alternative: ${esc(f.title)}</button>`; } }
+    box.innerHTML=`<div class="empty">✕ ${esc(sp.title)} was rejected by the evaluation engine:<br>${sp.ev.checks.filter(c=>c.status==='fail').map(c=>'• '+esc(c.msg)).join('<br>')}${alt}</div>`;
+    const fb=$('#fixBtn'); if(fb) fb.onclick=()=>renderBuilder(null,sp.ev.fix); }
+  $('#bEval').innerHTML=evalBadge(sp.ev,sp,extra);
+  const pb=$('#pinBtn'); if(pb) pb.onclick=e=>{ e.preventDefault(); S.meta.pinned=(S.meta.pinned||[]).filter(p=>JSON.stringify(p)!==JSON.stringify(sp.cfg)).concat([sp.cfg]).slice(-6); save(); renderPinned(); pb.textContent='✓ Added'; };
+  if(S.meta){ S.meta.chartCfg={m:$('#bM').value,g:$('#bG').value,a:$('#bA').value,n:$('#bN').value}; save(); }
+  const hit=lastAudit.findIndex(a=>a.catalog==='custom'); if(hit>=0) lastAudit.splice(hit,1); sp.shown=sp.ev.verdict==='APPROVED'?'Chart builder':'Blocked'; lastAudit.push(sp); if($('#audit').innerHTML) renderAudit();
+  return sp;
 }
-/* chat → chart: "chart stock value by supplier", "graph average lead time by category" */
+function renderPinned(M){
+  M=M||metrics(); const P=S.meta.pinned||[]; const wrap=$('#pinned');
+  if(!P.length){ wrap.innerHTML=''; return; }
+  wrap.innerHTML=P.map((c,i)=>`<div class="card"><div class="toolbar" style="margin-bottom:4px"><h3 style="margin:0;flex:1" id="pt${i}"></h3><button class="btn ghost" type="button" data-unpin="${i}" style="padding:3px 8px;font-size:12px">Remove</button></div><div class="chartbox" id="pb${i}"><canvas id="pc${i}"></canvas></div><div id="pe${i}"></div></div>`).join('');
+  P.forEach((c,i)=>{ const sp=specCustom(M,c.m,c.g,c.a,+c.n); if(!sp){ $('#pt'+i).textContent='Chart no longer available for this data'; $('#pb'+i).innerHTML=''; return; }
+    sp.ev=evaluate(sp,M);   // re-evaluated every time the data changes
+    if(sp.ev.verdict==='APPROVED'){ $('#pt'+i).textContent=sp.title; drawSpec('pc'+i,$('#pb'+i),sp); $('#pe'+i).innerHTML=evalBadge(sp.ev,sp); }
+    else { $('#pt'+i).textContent=sp.title+' — hidden'; $('#pb'+i).style.height='auto'; $('#pb'+i).innerHTML=`<div class="empty">No longer approved for the current data: ${esc(sp.ev.checks.find(c=>c.status==='fail')?.msg||'')}</div>`; $('#pe'+i).innerHTML=''; } });
+  $$('#pinned [data-unpin]').forEach(b=>b.onclick=()=>{ S.meta.pinned.splice(+b.dataset.unpin,1); save(); renderPinned(); });
+}
+function renderPolicy(){
+  const P=policy();
+  $('#policy').innerHTML=CATALOG.map(c=>`<label class="pol"><input type="checkbox" data-pol="${c.id}" ${P[c.id]?'checked':''}> <span><b>${esc(c.name)}</b> <span class="hint">· ${esc(c.type)}</span><br><span class="hint">${esc(c.purpose)}</span></span></label>`).join('')+
+    `<p class="hint" style="margin:8px 0 0">Never allowed: ${BANNED_TYPES.join(', ')}.</p>`;
+  $$('#policy [data-pol]').forEach(el=>el.onchange=()=>{ setPolicy(el.dataset.pol,el.checked); renderAll(); });
+}
+/* chat → chart, through the same engine */
 function chartFromText(t){
-  const M=metrics(), ms=measures(M), D=dims(M), T=' '+norm(t)+' ';
+  const M=metrics(), ms=measures(M).filter(m=>!m.idLike), D=dims(M), T=' '+norm(t)+' ';
   const parts=T.split(/ by | per | across | for each | grouped by /).map(x=>' '+x.trim()+' '); if(parts.length<2) return null;
   const score=(label,txt)=>{ const ws=norm(label.replace(/\(.*?\)/g,'')).split(' ').filter(w=>w.length>=3&&!/from|file|day|qty/.test(w)); const h=ws.filter(w=>txt.includes(' '+w)).length; return h? h-0.01*(ws.length-h) : 0; };
-  const wantMoney=/value|worth|amount|cost|price|rupee|inr/.test(T); const m=ms.map(x=>[x,score(x.label,parts[0])-(x.money&&!wantMoney?0.5:0)]).sort((a,b)=>b[1]-a[1])[0]; const d=D.map(x=>[x,score(x.label,parts[1])]).sort((a,b)=>b[1]-a[1])[0];
+  const wantMoney=/value|worth|amount|cost|price|rupee|inr/.test(T);
+  const m=ms.map(x=>[x,score(x.label,parts[0])-(x.money&&!wantMoney?0.5:0)]).sort((a,b)=>b[1]-a[1])[0]; const d=D.map(x=>[x,score(x.label,parts[1])]).sort((a,b)=>b[1]-a[1])[0];
   const how=/average|avg|mean/.test(T)?'avg':/count|number of|how many/.test(T)?'count':/max|highest|largest/.test(T)?'max':'sum';
-  if(!d||!d[1]||(how!=='count'&&(!m||!m[1]))) return null;
-  fillBuilder(M); if(m&&m[1]) $('#bM').value=m[0].key; $('#bG').value=d[0].key; $('#bA').value=how; renderBuilder(M);
-  return `Done — I've drawn **${how==='count'?'count of items':m[0].label} by ${d[0].label}** in “Build your own chart” on the Dashboard.`;
+  if(!d||!(d[1]>0)||(how!=='count'&&(!m||!(m[1]>0)))) return null;
+  fillBuilder(M); const sp=renderBuilder(M,{m:m?m[0].key:undefined,g:d[0].key,a:how}); if(!sp) return null;
+  if(sp.ev.verdict==='APPROVED') return `✓ **Approved (${sp.ev.score}/100)** — I've drawn **${sp.title}** in “Build your own chart” on the Dashboard. Click “Add to dashboard” to keep it.`;
+  const why=sp.ev.checks.filter(c=>c.status==='fail').map(c=>'- '+c.msg).join('\n');
+  let alt=''; if(sp.ev.fix){ const f=specCustom(M,sp.ev.fix.m,sp.ev.fix.g,sp.ev.fix.a,+sp.ev.fix.n); if(f&&evaluate(f,M).verdict==='APPROVED') alt=`\nApproved alternative: **${f.title}** — use the button under the chart.`; }
+  return `✕ **Not approved** — the evaluation engine blocked **${sp.title}**:\n${why}${alt}`;
 }
 function renderInv(){
   if(!hasData()) return;
@@ -1156,6 +1301,7 @@ function init(){
   $('#csvBtn').onclick=exportCSV; $('#entryForm').addEventListener('submit',onEntry);
   $('#eItem').addEventListener('input',()=>{ const it=lookupItem($('#eItem').value); $('#eUnit').textContent=it?'('+it.unit+', in stock '+q2(it.stock)+')':''; });
   $('#briefBtn').onclick=brief; ['#bM','#bG','#bA','#bN'].forEach(id=>$(id).addEventListener('change',()=>renderBuilder()));
+  renderPolicy();
   $('#askBar').addEventListener('submit',e=>{ e.preventDefault(); const v=$('#askIn').value.trim(); if(!v) return; $('#askIn').value=''; $('#chat').classList.add('on'); $('#fab').style.display='none'; ask(v); });
   $('#alertPill').onclick=()=>{ if(hasData()){ go('overview'); $('#alertCard').scrollIntoView({behavior:'smooth'}); } };
   $('#copyAlerts').onclick=async()=>{ const t=alertText(); try{ await navigator.clipboard.writeText(t); $('#copyAlerts').textContent='Copied ✓'; }catch(e){ prompt('Copy this alert message:',t); } setTimeout(()=>$('#copyAlerts').textContent='Copy alert message',1500); };
