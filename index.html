@@ -347,15 +347,15 @@ const hasData = () => S.items && S.items.length>0;
 
 /* ============ column detection ============ */
 const MASTER_FIELDS = [
- ['code','Item code',['item code','code','sku','part no','part number','material code','item id','product code','stock code','item no','article']],
- ['name','Item name',['item name','name','item','description','material','product','product name','material name','item description','stock item','particulars']],
+ ['code','Item code',['item code','code','sku','material','material no','material number','item number','part no','part number','material code','item id','product code','stock code','item no','article']],
+ ['name','Item name',['item name','name','item','description','material description','product','product name','material name','item description','stock item','particulars']],
  ['category','Category',['category','group','item group','stock group','class','material group','product group','type']],
  ['unit','Unit',['unit','uom','units','unit of measure']],
  ['min','Min / reorder level',['min level','minimum level','reorder level','re order level','reorder qty level','reorder point','rop','min stock','minimum stock','safety stock','min qty']],
  ['max','Max level',['max level','maximum level','max stock','maximum stock','max qty']],
- ['avgUse','Avg daily use',['avg daily use','average daily use','average daily consumption','daily consumption','avg daily consumption','daily usage','consumption per day','usage per day']],
- ['monthlyUse','Monthly use',['monthly consumption','monthly usage','consumption per month','avg monthly consumption','monthly use','avg monthly use']],
- ['lead','Lead time (days)',['lead time','lead time days','lead days','delivery days','lead']],
+ ['avgUse','Avg daily use',['avg daily sales','daily sales','average daily sales','avg sales per day','avg daily use','average daily use','average daily consumption','daily consumption','avg daily consumption','daily usage','consumption per day','usage per day']],
+ ['monthlyUse','Monthly use',['monthly sales','avg monthly sales','monthly consumption','monthly usage','consumption per month','avg monthly consumption','monthly use','avg monthly use']],
+ ['lead','Lead time (days)',['lead time','lead time days','lead days','delivery days','planned deliv time','planned delivery time','delivery time','lead']],
  ['moq','MOQ',['moq','min order qty','minimum order quantity','order multiple','min order quantity']],
  ['rate','Rate / unit price',['rate','price','unit price','unit cost','cost','rate per unit','price per unit']],
  ['value','Stock value',['value','stock value','closing value','amount','inventory value']],
@@ -365,8 +365,8 @@ const MASTER_FIELDS = [
 const MOVE_FIELDS = [
  ['date','Date',['date','txn date','voucher date','posting date','trans date','transaction date','entry date']],
  ['type','Type (Issue/Receipt)',['type','txn type','movement type','transaction type','voucher type','in out','direction']],
- ['item','Item (code or name)',['item code','code','sku','item name','item','name','material','product','description','particulars']],
- ['qty','Quantity',['qty','quantity','issued qty','issue qty','consumption','quantity issued','qty out','outward','out qty','used','issued']],
+ ['item','Item (code or name)',['item code','code','sku','material','item name','item','name','product','description','particulars']],
+ ['qty','Quantity',['qty','quantity','qty in une','issued qty','issue qty','consumption','quantity issued','qty out','outward','out qty','used','issued']],
 ];
 function autoMap(headers, fields){
   const H = headers.map(h=>({h, n:norm(h)}));
@@ -453,6 +453,8 @@ function parseDate(v){
   const t=Date.parse(s); return isNaN(t)?null:dayStart(t);
 }
 const ISSUE_RE=/issue|outward|\bout\b|consum|sale|dispatch|despatch|delivery|used|transfer out|^-$|^cr$/i;
+const SAP_ISSUE=['201','221','231','241','251','261','281','291','551','601','641','122','161'];
+const SAP_RECEIPT=['101','103','105','131','501','521','531','561','602','262','202','222'];
 const RECEIPT_RE=/receipt|^in$|inward|purchase|grn|return|^\+$|^dr$|production|opening/i;
 
 function buildDataset(){
@@ -491,14 +493,17 @@ function buildDataset(){
   });
   if(!items.length){ $('#mapErr').textContent='No valid item rows found — check that the right columns are selected.'; return; }
   let maxD=null, minD=null; const raw=[];
-  moves.forEach(s=>{ const M=s.map;
+  moves.forEach(s=>{ const M=s.map; const hasNeg=s.rows.some(r=>(num(r[M.qty])||0)<0);
     s.rows.forEach(r=>{ Q.moveRows++;
       const d=parseDate(r[M.date]); if(d==null){ Q.moveBadDate++; return; }
       let qn=num(r[M.qty]); if(qn==null||qn===0){ Q.moveBadQty++; return; }
       const raw_key=String(r[M.item]??'').trim(), it=byKey.get(raw_key.toLowerCase());
       if(!it){ Q.moveUnmatched++; if(Q.unmatchedEx.length<3&&!Q.unmatchedEx.includes(raw_key)) Q.unmatchedEx.push(raw_key); return; }
       let isIssue=true;
-      if(M.type){ const t=String(r[M.type]??'').trim(); isIssue = RECEIPT_RE.test(t) && !ISSUE_RE.test(t) ? false : true; }
+      if(M.type){ const t=String(r[M.type]??'').trim();
+        if(/^\d{3}$/.test(t)) isIssue = SAP_ISSUE.includes(t) ? true : SAP_RECEIPT.includes(t) ? false : (hasNeg ? qn<0 : true);
+        else if(ISSUE_RE.test(t)) isIssue=true; else if(RECEIPT_RE.test(t)) isIssue=false; else isIssue = hasNeg ? qn<0 : true; }
+      else if(hasNeg) isIssue = qn<0;
       if(qn<0) qn=-qn;
       if(!isIssue){ Q.receipts++; return; }
       if(d>TODAY){ Q.moveBadDate++; return; }
@@ -571,7 +576,7 @@ function metrics(){
       if(span>=28){ const r=it.hist.slice(-14).reduce((a,b)=>a+b,0), p=it.hist.slice(-28,-14).reduce((a,b)=>a+b,0); trendPct = p? (r-p)/p*100 : null; } }
     else if(it.avgFile){ avg=it.avgFile; src='file'; }
     else if(moves){ avg=0; src='movements'; } // movements uploaded but none for this item = no use in period
-    const cover = avg>0 ? it.stock/avg : null;
+    const cover = avg>0 ? Math.max(0,it.stock)/avg : null;
     const rop = it.min>0 ? it.min : (avg>0 ? avg*(it.lead+sd) : null);
     const max = it.max>0 ? it.max : (avg>0 ? rop+avg*cd : (rop!=null ? rop*2 : null));
     let status='NODATA';
@@ -788,14 +793,15 @@ async function callGemini(contents, sys, {timeout=60000}={}){
 let lastItemId=null;
 const STOP=/^(with|from|grade|type|item|material|technical|stock|total|pack|size|each|unit|this|that|what|which|when|have|much|many|left|does|will|week|order|reorder)$/;
 function findItem(text){
-  const t=' '+norm(text)+' '; let best=null, bs=0;
+  const t=' '+norm(text)+' '; let best=null, bs=0, ties=[]; findItem.ambiguous=null;
   for(const x of S.items){
     const c=norm(x.code), n=norm(x.name); let s=0;
     if(c && c.length>=2 && t.includes(' '+c+' ')) s=100+c.length;
     else if(n && t.includes(' '+n+' ')) s=80+n.length;
-    else { const words=n.split(' ').filter(w=>w.length>=3 && !STOP.test(w)); const hit=words.filter(w=>t.includes(' '+w+' ')||t.includes(' '+w+'s ')||(w.endsWith('s')&&t.includes(' '+w.slice(0,-1)+' '))).length; if(hit) s=hit*10+(hit===words.length?5:0); }
-    if(s>bs){bs=s;best=x;}
+    else { const words=n.split(' ').filter(w=>(w.length>=3||/\d/.test(w)) && !STOP.test(w)); const hw=words.filter(w=>t.includes(' '+w+' ')||t.includes(' '+w+'s ')||(w.endsWith('s')&&t.includes(' '+w.slice(0,-1)+' '))); const hit=hw.length; if(hit) s=hit*10+hw.filter(w=>/\d/.test(w)).length*6+(hit===words.length?5:0); }
+    if(s>bs){bs=s;best=x;ties=[x];} else if(s===bs&&s>0) ties.push(x);
   }
+  if(bs>=10 && bs<80 && ties.length>1){ findItem.ambiguous=ties.slice(0,5); return null; }
   return bs>=10?best:null;
 }
 function offlineAnswer(q){
@@ -823,8 +829,9 @@ function offlineAnswer(q){
     if(/usage|consum|\buse\b|velocity|trend/.test(t)) return x.avg!=null?`${x.name}: avg ${q2(x.avg)} ${x.unit}/day${x.trendPct!=null?`; last 14 days ${x.trendPct>=0?'up':'down'} ${inr(Math.abs(x.trendPct))}% vs the prior 14`:''}.`:`No usage data for ${x.name} in the uploaded file.`;
     if(/order|reorder|buy|how much should/.test(t)) return x.sugg?`Suggested order: **${q2(x.sugg)} ${x.unit}** of ${x.name} (max ${q2(x.max)} − stock ${q2(x.stock)}${x.moq?', rounded to MOQ '+q2(x.moq):''}).`:`${x.name} is ${x.status==='NODATA'?'without usage data':x.status}; no reorder suggested (stock ${q2(x.stock)}${x.rop!=null?' vs ROP '+q2(x.rop):''} ${x.unit}).`;
     if(/value|price|rate|cost/.test(t)) return x.rate?`${x.name}: rate ₹${inr(x.rate,2)}/${x.unit}, stock value ${lakh(x.value)}.`:`No rate for ${x.name} in the file.`;
-    return `**${x.name}**${x.code?' ('+x.code+')':''}: ${q2(x.stock)} ${x.unit} in stock${x.avg!=null?` · ${q2(x.avg)}/day use`:''}${x.cover!=null?` · ${inr(x.cover,1)} days cover`:''} · status ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · suggested order ${q2(x.sugg)} ${x.unit}`:''}.`;
+    return `**${x.name}**${x.code?' ('+x.code+')':''}: ${q2(x.stock)} ${x.unit} in stock${x.avg!=null?(x.avg>0?` · ${q2(x.avg)}/day use`:' · no use in the period'):''}${x.cover!=null?` · ${inr(x.cover,1)} days cover`:''} · status ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · suggested order ${q2(x.sugg)} ${x.unit}`:''}.`;
   }
+  if(findItem.ambiguous) return 'I found more than one possible match. Did you mean:\n'+findItem.ambiguous.map(x=>`- ${x.name}${x.code?' ('+x.code+')':''}`).join('\n');
   if(/how much|stock|left|balance|quantity/.test(t)) return `Which item do you mean? For example: ${M.slice(0,3).map(x=>x.name).join(', ')}.`;
   return "I can only help with your uploaded inventory — stock, usage, days of cover and reorder suggestions. Could you rephrase, or say \"talk to store manager\" to raise a ticket?";
 }
