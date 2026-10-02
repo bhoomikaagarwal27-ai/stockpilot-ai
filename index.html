@@ -759,7 +759,7 @@ RULES
 9. You are an AI; say so if asked. Humans make ordering decisions.
 10. Style: concise and professional, max ~120 words, short bullets for lists, no tables, no headings.`;
 
-async function callGemini(contents, sys, {timeout=30000}={}){
+async function callGemini(contents, sys, {timeout=60000}={}){
   const model=(S.settings.model||DEFAULT_MODEL).trim();
   const body={systemInstruction:{parts:[{text:sys}]},contents,generationConfig:{temperature:0.2,maxOutputTokens:1024}};
   const ctrl=new AbortController(); const tm=setTimeout(()=>ctrl.abort(),timeout);
