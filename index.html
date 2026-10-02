@@ -162,6 +162,8 @@ table.corr{border-collapse:separate;border-spacing:2px;font-size:11.5px}table.co
 .pin{margin-top:6px;padding:7px 10px;border-radius:8px;background:var(--surface-2);font-size:12.5px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;position:relative;min-height:30px}
 .pin b{width:100%}.pin .pinx{position:absolute;right:6px;top:4px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:13px}
 table.corr td{cursor:pointer}
+.prog{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--brand);width:100%}.prog i{width:16px;height:16px;border:2px solid var(--brand);border-right-color:transparent;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+#upMsg .btn{padding:4px 10px;font-size:12px;margin-left:6px}
 /* chat */
 #fab{position:fixed;right:18px;bottom:18px;background:var(--brand);color:#fff;border:0;border-radius:99px;padding:12px 18px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;z-index:20}
 #chat{position:fixed;right:18px;bottom:18px;width:400px;max-width:calc(100vw - 32px);height:600px;max-height:calc(100vh - 36px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.3);display:none;flex-direction:column;z-index:30;overflow:hidden}
@@ -248,11 +250,12 @@ table.corr td{cursor:pointer}
       <button class="btn ghost" id="tplBtn">Download blank template</button>
       <button class="btn ghost" id="sampleBtn">Try with sample data</button>
       <span class="hint" id="upMsg"></span>
+      <div id="upProg" class="prog" hidden><i></i><span>Reading…</span></div>
     </div>
     <div class="steps">
       <div><b>1 · Stock list (required)</b>One row per item: item name or code and current stock. Optional: category, unit, lead time, rate, supplier, MOQ, min/max level, average daily or monthly use.</div>
       <div><b>2 · Movements (optional, recommended)</b>Date, item and quantity issued/consumed (plus type, e.g. Issue/Receipt). Used for daily use, trend and stock-out dates.</div>
-      <div><b>3 · Check mapping</b>The app guesses which column is which. Correct anything wrong, set the default lead time, then build the dashboard.</div>
+      <div><b>3 · Dashboard is built automatically</b>The app (and AI, if connected) works out which column is which. You can still use “Adjust columns” afterwards if something looks wrong.</div>
     </div>
   </div>
   <div class="card" id="oldData" style="margin-top:12px;background:var(--warn-bg)" hidden><b>Please upload your file again.</b> The data in this browser was loaded with an older version of the app, so some columns or movement types may have been read incorrectly.</div>
@@ -448,6 +451,7 @@ let usedModel = '';
 /* ============ helpers ============ */
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
+const stk = x => S?.meta?.noStock ? 'stock not in file' : q2(x.stock)+' '+x.unit;
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const inr = (n, d=0) => Number(n).toLocaleString('en-IN', {maximumFractionDigits:d, minimumFractionDigits:0});
 const q2 = n => { const a=Math.abs(n); return inr(n, a>=100?0:a>=10?1:2); };
@@ -576,6 +580,16 @@ function learnTypes(s){
   Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]).slice(0,30).forEach(t=>{ s.typeMap[t]=old[t]||guessType(t,(neg[t]||0)/cnt[t]); if(!old[t] && !/^\d{3}$/.test(t) && !ISSUE_RE.test(t) && !RECEIPT_RE.test(t) && !/opening|adjust|physical|transfer in|stock check/i.test(t)) s.typeUnsure[t]=true; });
   s.typeCount=cnt;
 }
+const NUMERIC_FIELDS=['stock','min','max','avgUse','monthlyUse','cover','lead','moq','rate','value','qty'];
+function numShare(s,h){ const v=s.rows.slice(0,300).map(r=>r[h]).filter(x=>x!=null&&String(x).trim()!==''); if(!v.length) return 0; return v.filter(x=>typeof x==='number'||/^[\s₹$€£(-]*[\d,]*\.?\d+\)?\s*%?$/.test(String(x))).length/v.length; }
+function sanitize(s){
+  const order=s.role==='movement'?['date','item','qty','type']:['name','code','stock','rate','value','category','vendor','unit','lead','min','max','avgUse','monthlyUse','cover','moq'];
+  const used=new Set(), clean={};
+  order.forEach(k=>{ const h=s.map[k]; if(!h||!s.headers.includes(h)||used.has(h)) return; if(NUMERIC_FIELDS.includes(k)&&numShare(s,h)<0.7) return; if(['stock','qty'].includes(k)&&ID_RE.test(h)) return; clean[k]=h; used.add(h); });
+  s.map=clean;
+  if(s.role==='master' && !clean.name && !clean.code){ const P=profile(s).filter(c=>!used.has(c.h)&&c.text>=0.8).sort((a,b)=>b.uniq-a.uniq); if(P[0]){ s.map.name=P[0].h; } }
+  if(s.role==='movement' && (!s.map.date||!s.map.item||!s.map.qty)) s.role='ignore';
+}
 function prepareMapping(sheets, label){
   const L=learned(); let rememberedN=0;
   sheets.forEach(s=>{ const mem=L[sigOf(s.headers)];
@@ -584,16 +598,28 @@ function prepareMapping(sheets, label){
     if(s.role==='movement') learnTypes(s);
   });
   if(!sheets.some(s=>s.role==='master')){ const c=sheets.find(s=>s.role!=='movement')||sheets[0]; c.role='master'; c.map=autoMap(c.headers,MASTER_FIELDS); }
-  pending = {sheets, label};
-  $('#upMsg').textContent = `Read ${sheets.length} sheet(s) from ${label}.`+(rememberedN?` ${rememberedN} sheet(s) recognised from a previous upload — mapping re-used.`:' Check the mapping below.');
-  renderMapping();
+  pending = {sheets, label}; lastPending=pending;
+  $('#upMsg').textContent = `Reading ${label}…`;
   const missing = sheets.some(s=>(s.role==='master'&&(!s.map.stock||(!s.map.name&&!s.map.code)))||(s.role==='movement'&&(!s.map.date||!s.map.qty||!s.map.item))||s.role==='ignore');
   if(missing){ const ms=sheets.find(s=>s.role==='master'); if(ms) guessFromContent(ms,new Set());
     const names=new Set(); if(ms) ms.rows.forEach(r=>{ [ms.map.name,ms.map.code].forEach(h=>{ if(h&&r[h]!=null) names.add(String(r[h]).trim().toLowerCase()); }); });
-    sheets.filter(s=>s!==ms).forEach(s=>guessFromContent(s,names)); renderMapping(); }
-  const unsure = sheets.some(s=>s.typeUnsure&&Object.keys(s.typeUnsure).length);
-  if(missing && !rememberedN && aiMode()!=='offline') aiMapAll();
-  else if(unsure && !rememberedN && aiMode()!=='offline'){ $('#aiMapMsg').textContent='AI is checking transaction types…'; Promise.all(sheets.filter(s=>s.typeUnsure&&Object.keys(s.typeUnsure).length).map(s=>aiTypes(s).catch(()=>{}))).then(()=>{ $('#aiMapMsg').textContent='Transaction types checked by AI — please confirm.'; renderMapping(); }); }
+    sheets.filter(s=>s!==ms).forEach(s=>guessFromContent(s,names)); }
+  autoBuild(missing && !rememberedN, rememberedN);
+}
+/* one-click flow: rules → remembered formats → content guess → AI (if needed) → sanity check → build dashboard */
+let lastPending=null;
+async function autoBuild(needAI, remembered){
+  const prog=$('#upProg'); prog.hidden=false;
+  const step=t=>{ prog.querySelector('span').textContent=t; };
+  if(needAI && aiMode()!=='offline'){ step('AI is reading your columns…'); await aiMapAll(true); }
+  else if(pending.sheets.some(s=>s.typeUnsure&&Object.keys(s.typeUnsure).length) && aiMode()!=='offline'){ step('AI is checking transaction types…'); await Promise.all(pending.sheets.map(s=>s.typeUnsure&&Object.keys(s.typeUnsure).length?aiTypes(s).catch(()=>{}):null)); }
+  step('Building your dashboard…');
+  pending.sheets.forEach(s=>{ if(s.role!=='ignore') sanitize(s); });
+  if(!pending.sheets.some(s=>s.role==='master')){ const c=pending.sheets.find(s=>s.role!=='movement')||pending.sheets[0]; c.role='master'; c.map=autoMap(c.headers,MASTER_FIELDS); sanitize(c); }
+  await new Promise(r=>setTimeout(r,30));
+  const ok=buildDataset(true);
+  prog.hidden=true;
+  if(!ok){ $('#upMsg').innerHTML='Could not build a dashboard automatically. <button class="btn ghost" type="button" id="adjBtn2">Choose columns manually</button>'; $('#adjBtn2').onclick=()=>{ pending=lastPending; renderMapping(); }; }
 }
 /* ---- content profiling: guess columns from the VALUES when the names are unknown and AI is not available ---- */
 function profile(s){
@@ -613,14 +639,14 @@ function guessFromContent(s, masterNames){
     take('qty',numC.find(free)); learnTypes(s);
   } else if(s.role==='master'){
     if(!s.map.name&&!s.map.code) take('name',textC.filter(free).sort((a,b)=>b.uniq-a.uniq)[0]);
-    take('stock',numC.find(free));
+    take('stock',numC.find(c=>free(c)&&!/price|rate|rating|discount|percent|%|count|review|amount|value|cost|mrp|\bid\b|code|year|age|score|weight|size/i.test(c.h)));   // never guess price/rating columns as stock
   }
 }
 /* ---- AI column mapping: Gemini reads the headers + sample rows of ANY file ---- */
 const FIELD_HELP={cover:'days of stock cover',code:'item code / SKU / material number',name:'item name / description',category:'category / group',unit:'unit of measure',min:'minimum / reorder level',max:'maximum level',avgUse:'average daily consumption or sales',monthlyUse:'monthly consumption or sales',lead:'supplier lead time in days',moq:'minimum order quantity',rate:'unit price / cost',value:'total stock value',vendor:'supplier / vendor',stock:'current stock quantity on hand',date:'transaction date',type:'transaction / movement type (issue, receipt, sale…)',item:'item code or name the row refers to',qty:'quantity moved'};
 async function aiMapSheet(s){
   const sample=s.rows.slice(0,6).map(r=>Object.fromEntries(s.headers.map(h=>[h, r[h] instanceof Date? iso(r[h]) : r[h]])));
-  const prompt=`You map spreadsheet columns for an inventory app. Sheet "${s.sheet}" from file "${s.file}".\nHEADERS: ${JSON.stringify(s.headers)}\nSAMPLE ROWS: ${JSON.stringify(sample).slice(0,6000)}\n\nDecide the sheet role: "master" (one row per item with current stock), "movement" (dated transactions: issues, sales, receipts) or "ignore".\nMaster fields: ${MASTER_FIELDS.map(f=>f[0]+' = '+FIELD_HELP[f[0]]).join('; ')}.\nMovement fields: ${MOVE_FIELDS.map(f=>f[0]+' = '+FIELD_HELP[f[0]]).join('; ')}.\nReply with JSON only, no prose: {"role":"master|movement|ignore","map":{"field":"exact header text"}}. Use only headers from HEADERS; omit fields that are not present; never use one header twice.`;
+  const prompt=`You map spreadsheet columns for an inventory app. Sheet "${s.sheet}" from file "${s.file}".\nHEADERS: ${JSON.stringify(s.headers)}\nSAMPLE ROWS: ${JSON.stringify(sample).slice(0,6000)}\n\nDecide the sheet role: "master" (one row per item with current stock), "movement" (dated transactions: issues, sales, receipts) or "ignore".\nMaster fields: ${MASTER_FIELDS.map(f=>f[0]+' = '+FIELD_HELP[f[0]]).join('; ')}.\nMovement fields: ${MOVE_FIELDS.map(f=>f[0]+' = '+FIELD_HELP[f[0]]).join('; ')}.\nReply with JSON only, no prose: {"role":"master|movement|ignore","map":{"field":"exact header text"}}. Use only headers from HEADERS; omit fields that are not present (many files have no stock column — then omit stock); numeric fields (stock, rate, value, lead, min, max, moq, qty, avgUse, monthlyUse, cover) must be columns that contain numbers, never IDs or names; never use one header twice.`;
   const txt=await callGemini([{role:'user',parts:[{text:prompt}]}],'You return strict JSON only.',{timeout:45000});
   const j=JSON.parse(txt.replace(/^[^{]*/,'').replace(/[^}]*$/,''));
   if(!['master','movement','ignore'].includes(j.role)) throw new Error('bad role');
@@ -634,13 +660,13 @@ async function aiTypes(s){
   const j=JSON.parse(txt.replace(/^[^{]*/,'').replace(/[^}]*$/,''));
   vals.forEach(v=>{ if(['issue','receipt','ignore'].includes(j[v])){ s.typeMap[v]=j[v]; if(s.typeUnsure) delete s.typeUnsure[v]; } });
 }
-async function aiMapAll(){
+async function aiMapAll(silent){
   if(!pending) return; if(aiMode()==='offline'){ $('#aiMapMsg').textContent='Add a Gemini proxy or key in Settings to use AI mapping.'; return; }
   const b=$('#aiMapBtn'); b.disabled=true; $('#aiMapMsg').textContent='AI is reading your column headers and sample rows…';
   let ok=0, fail=0;
   for(const s of pending.sheets){ try{ const r=await aiMapSheet(s); s.role=r.role; s.map=r.map; s.aiMapped=true; if(s.role==='movement'){ learnTypes(s); try{ await aiTypes(s); }catch(e){} } ok++; }catch(e){ fail++; } }
   b.disabled=false; $('#aiMapMsg').textContent = ok?`AI mapped ${ok} sheet(s)${fail?`, ${fail} failed (kept rule-based mapping)`:''}. Please check before building.`:'AI mapping failed — using rule-based mapping. Please check the columns.';
-  renderMapping();
+  if(!silent) renderMapping();
 }
 function renderMapping(){
   const opt=(headers,sel)=>'<option value="">— not in file —</option>'+headers.map(h=>`<option ${h===sel?'selected':''}>${esc(h)}</option>`).join('');
@@ -675,6 +701,7 @@ function parseDate(v){
   if((m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) return mkD(+m[1],+m[2]-1,+m[3]);
   if((m=s.match(/^(\d{1,2})[-\/. ]([A-Za-z]{3})[A-Za-z]*[-\/. ,]*(\d{2,4})/))){ const mo=MON[m[2].toLowerCase()]; if(mo!=null){ let y=+m[3]; if(y<100)y+=2000; return mkD(y,mo,+m[1]); } }
   if((m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))){ let y=+m[3]; if(y<100)y+=2000; return mkD(y,+m[2]-1,+m[1]); } // dd-mm-yyyy (Indian)
+  if(s.length>30 || !/\d{4}/.test(s) || !/^[\w ,.:\-\/+]+$/.test(s) || /[a-z]{4,}/i.test(s.replace(/jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?|mon(day)?|tue(sday)?|wed(nesday)?|thu(rsday)?|fri(day)?|sat(urday)?|sun(day)?/gi,''))) return null;
   const t=Date.parse(s); return isNaN(t)?null:dayStart(t);
 }
 const ISSUE_RE=/issue|outward|\bout\b|consum|sale|dispatch|despatch|delivery|used|transfer out|^-$|^cr$/i;
@@ -682,15 +709,16 @@ const SAP_ISSUE=['201','221','231','241','251','261','281','291','551','601','64
 const SAP_RECEIPT=['101','103','105','131','501','521','531','561','602','262','202','222'];
 const RECEIPT_RE=/receipt|^in$|inward|purchase|grn|return|^\+$|^dr$|production|opening/i;
 
-function buildDataset(){
-  const sh=pending.sheets, masters=sh.filter(s=>s.role==='master'), moves=sh.filter(s=>s.role==='movement');
+function buildDataset(auto){
+  if(!pending) return false; const sh=pending.sheets, masters=sh.filter(s=>s.role==='master'), moves=sh.filter(s=>s.role==='movement');
   const err=[];
   if(!masters.length) err.push('Choose at least one sheet as the Stock list.');
-  masters.forEach(s=>{ if(!s.map.stock) err.push(`${s.sheet}: select the Current stock column.`); if(!s.map.name&&!s.map.code) err.push(`${s.sheet}: select Item name or Item code.`); });
+  masters.forEach(s=>{ if(!s.map.name&&!s.map.code) err.push(`${s.sheet}: select Item name or Item code.`); });
+  const noStock=masters.length>0 && masters.every(s=>!s.map.stock);
   moves.forEach(s=>{ [['date','Date'],['item','Item'],['qty','Quantity']].forEach(([k,l])=>{ if(!s.map[k]) err.push(`${s.sheet}: select the ${l} column for movements.`); }); });
   masters.forEach(s=>{ const vals=Object.values(s.map).filter(Boolean); if(new Set(vals).size<vals.length) err.push(`${s.sheet}: the same column is selected for two fields.`); });
   const defLead=num($('#defLead').value); if(!(defLead>=1&&defLead<=180)) err.push('Default lead time must be between 1 and 180 days.');
-  if(err.length){ $('#mapErr').innerHTML=err.map(esc).join('<br>'); return; }
+  if(err.length){ $('#mapErr').innerHTML=err.map(esc).join('<br>'); if(!auto) renderMapping(); return false; }
   const defUnit=($('#defUnit').value||'units').trim().slice(0,10);
   const Q={rows:0,skipped:[],merged:0,neg:0,noLead:0,noRate:0,usedMonthly:0,moveRows:0,moveUnmatched:0,unmatchedEx:[],moveBadDate:0,moveBadQty:0,receipts:0,defLead};
   const items=[], byKey=new Map();
@@ -700,9 +728,10 @@ function buildDataset(){
     const rawOf=r=>{ const o={}; rawH.forEach(h=>{ let v=r[h]; if(v==null||v==='') return; if(v instanceof Date) v=fmtDate(v); const n=typeof v==='number'?v:num(v); o[h]=(n!=null&&/^[\s₹(-]*[\d,.]+\)?\s*$/.test(String(v)))?n:String(v).trim().slice(0,40); }); return o; };
     s.rows.forEach((r,ri)=>{
       Q.rows++;
-      const name=String(r[M.name]??'').trim(), code=String(r[M.code]??'').trim(), stock=num(r[M.stock]);
+      const name=String(r[M.name]??'').trim(), code=String(r[M.code]??'').trim(); let stock=num(r[M.stock]);
       if(!name&&!code){ Q.skipped.push(`${s.sheet} row ${ri+2}: no item name/code`); return; }
       if(/^(total|grand total|sub ?total)\b/i.test(name||code)){ Q.skipped.push(`${s.sheet} row ${ri+2}: total row ignored`); return; }
+      if(stock==null && noStock) stock=0;
       if(stock==null){ Q.skipped.push(`${s.sheet} row ${ri+2} (${name||code}): stock blank or not a number`); return; }
       const key=(code||name).toLowerCase();
       if(byKey.has(key)){ byKey.get(key).stock+=stock; Q.merged++; return; }
@@ -720,7 +749,7 @@ function buildDataset(){
       items.push(it); byKey.set(key,it); if(code&&name&&!byKey.has(name.toLowerCase())) byKey.set(name.toLowerCase(),it);
     });
   });
-  if(!items.length){ $('#mapErr').textContent='No valid item rows found — check that the right columns are selected.'; return; }
+  if(!items.length){ $('#mapErr').textContent='No valid item rows found — check that the right columns are selected.'; return false; }
   let maxD=null, minD=null; const raw=[];
   moves.forEach(s=>{ const M=s.map; const hasNeg=s.rows.some(r=>(num(r[M.qty])||0)<0);
     const dOrd=detectDateOrder(s.rows.map(r=>r[M.date]));
@@ -744,11 +773,12 @@ function buildDataset(){
     raw.forEach(([it,d,q])=>{ if(d<start) return; if(!it.hist) it.hist=new Array(HIST_DAYS).fill(0); it.hist[Math.round((d-start)/DAY)]+=q; }); }
   const span = raw.length ? Math.min(30, Math.round((asOf-Math.max(minD, asOf-29*DAY))/DAY)+1) : 0;
   const histLen = raw.length ? Math.min(HIST_DAYS, Math.round((asOf-minD)/DAY)+1) : 0;
-  S.meta={pv:4, built:Date.now(), mapped:[...new Set(masters.flatMap(x=>Object.values(x.map).filter(Boolean)))], name:$('#dsInput').value.trim().slice(0,60), files:pending.label, asOf, span, histLen, hasMoves:raw.length>0, quality:Q};
+  S.meta={pv:4, noStock, built:Date.now(), mapped:[...new Set(masters.flatMap(x=>Object.values(x.map).filter(Boolean)))], name:($('#dsInput').value.trim()||SESSION?.company||'').slice(0,60), files:pending.label, asOf, span, histLen, hasMoves:raw.length>0, quality:Q};
   S.items=items; S.tx=[]; S.tickets=[]; S.chat=[]; lastItemId=null;
   remember(sh); if(!S.meta.cfg) S.meta.cfg={safety:$('#safety').value,cycle:$('#cycle').value,w7:$('#w7').value,fastDays:$('#fastDays').value};
-  save(); pending=null; $('#mapCard').hidden=true; $('#upMsg').textContent='Mapping saved — next time a file with the same columns is uploaded it will be recognised automatically.';
-  afterDataChange(); renderQuality(); renderChat(); go('overview');
+  save(); lastPending=pending; pending=null; $('#mapCard').hidden=true; $('#upMsg').innerHTML=`✓ Dashboard built automatically from ${esc(S.meta.files)}${noStock?' — this file has no stock column, so it is shown as a product catalogue (charts and chat work; stock alerts need a stock column)':''}. <button class="btn ghost" type="button" id="adjBtn">Adjust columns</button>`; $('#adjBtn').onclick=()=>{ pending=lastPending; if(pending){ $('#mapCard').hidden=false; renderMapping(); go('data'); } };
+  afterDataChange(); renderQuality(); renderChat(); go('overview'); lastPending=lastPending||null;
+  return true;
 }
 function renderQuality(){
   if(!hasData()){ $('#qCard').hidden=true; return; }
@@ -873,7 +903,7 @@ function afterDataChange(){
   $('#asOf').textContent = 'Data as of '+fmtDate(S.meta.asOf);
   $('#oldData').hidden = (S.meta.pv||0)>=3;
   loadCfg(); $('#bM').innerHTML='';
-  { const M=metrics(), c=M.find(x=>x.status==='CRITICAL')||M.find(x=>x.cover!=null)||M[0]; $('#askIn').placeholder=`e.g. When will ${c.name} run out?  ·  Which items are fast moving?  ·  What should I order this week?`; }
+  { const M=metrics(), c=M.find(x=>x.status==='CRITICAL')||M.find(x=>x.cover!=null)||M[0]; $('#askIn').placeholder=S.meta.noStock?'e.g. Which category has the highest average price?  ·  Chart rating by category  ·  What is ABC analysis?':`e.g. When will ${c.name} run out?  ·  Which items are fast moving?  ·  What should I order this week?`; }
   const cats=[...new Set(S.items.map(i=>i.cat))].sort();
   $('#fCat').innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option>${esc(c)}</option>`).join('');
   $('#itemList').innerHTML=S.items.slice(0,3000).map(i=>`<option value="${esc(i.code?i.code+' · '+i.name:i.name)}">`).join('');
@@ -887,7 +917,7 @@ function buildAlerts(M){
     const qty = x.sugg ? `Order ${q2(x.sugg)} ${x.unit}` : '';
     if(x.stock<=0 && (x.avg>0||x.rop!=null)) A.push({sev:0,tag:'OUT OF STOCK',x,msg:`${x.name} is out of stock${x.avg>0?` (selling ${q2(x.avg)} ${x.unit}/day)`:''}.`,act:qty||'Order now'});
     else if(x.status==='CRITICAL') A.push({sev:0,tag:'STOCK-OUT RISK',x,msg:`${x.name} runs out in ${inr(x.cover,1)} days (~${fmtDate(x.stockoutDate)}), but the supplier needs ${x.lead} days.`,act:(qty?qty+' · ':'')+'order today'});
-    else if(x.status==='LOW') A.push({sev:1,tag:'BELOW REORDER POINT',x,msg:`${x.name}: ${q2(x.stock)} ${x.unit} left, reorder point ${q2(x.rop)}.${x.orderBy?` Order by ${fmtDate(x.orderBy)}.`:''}`,act:qty});
+    else if(x.status==='LOW') A.push({sev:1,tag:'BELOW REORDER POINT',x,msg:`${x.name}: ${stk(x)} left, reorder point ${q2(x.rop)}.${x.orderBy?` Order by ${fmtDate(x.orderBy)}.`:''}`,act:qty});
     if(x.spike!=null && x.status!=='CRITICAL') A.push({sev:2,tag:'DEMAND SPIKE',x,msg:`${x.name}: last 7 days selling ${inr(x.spike)}% faster than the 30-day average (${q2(x.v7)} vs ${q2(x.v30)} ${x.unit}/day).`,act:'Watch'});
   });
   const dead=M.filter(x=>x.fsn==='N'&&x.stock>0);
@@ -895,6 +925,7 @@ function buildAlerts(M){
   return A.sort((a,b)=>a.sev-b.sev||((a.x?.cover??999)-(b.x?.cover??999)));
 }
 function renderAlerts(M){
+  $('#alertCard').hidden=!!S.meta?.noStock; if(S.meta?.noStock){ $('#alertPill').textContent=''; $('#fab').textContent='💬 Ask Stock Assistant'; return; }
   const A=buildAlerts(M), urgent=A.filter(a=>a.sev<=1).length;
   $('#fab').textContent = '💬 Ask Stock Assistant'+(urgent?` · 🔔 ${urgent}`:'');
   $('#alertPill').textContent = urgent ? `${urgent} stock alert${urgent>1?'s':''}` : 'No stock alerts'; $('#alertPill').classList.toggle('alert',urgent>0);
@@ -905,6 +936,7 @@ function renderAlerts(M){
 function alertText(){ const A=buildAlerts(metrics()).filter(a=>a.sev<=2);
   return `Stock alerts – ${S.meta.name||'Inventory'} (${fmtDate(S.meta.asOf)})\n`+(A.length?A.map((a,i)=>`${i+1}. [${a.tag}] ${a.msg}${a.act?' → '+a.act:''}`).join('\n'):'No alerts.'); }
 function renderKPIs(M){
+  if(S.meta.noStock){ const cats=new Set(M.map(x=>x.cat)).size, rated=M.filter(x=>x.rate>0); $('#kpis').innerHTML=[['Products',inr(M.length),'from '+S.meta.files],['Categories',inr(cats),'groups in the file'],rated.length?['Average price','₹'+inr(rated.reduce((a,x)=>a+x.rate,0)/rated.length,2),`${inr(rated.length)} items with a price`]:null,['Stock alerts','—','no stock column in this file']].filter(Boolean).map(([l,v,f])=>`<div class="card kpi"><div class="lbl">${l}</div><div class="val">${v}</div><div class="foot">${esc(f)}</div></div>`).join(''); return; }
   const val=M.reduce((a,x)=>a+x.value,0), crit=M.filter(x=>x.status==='CRITICAL'), low=M.filter(x=>x.status==='LOW'), exc=M.filter(x=>x.status==='EXCESS');
   const po=M.reduce((a,x)=>a+x.orderValue,0), hasRate=M.some(x=>x.rate>0);
   const names=a=>a.length?a.slice(0,3).map(x=>x.name).join(', ')+(a.length>3?` +${a.length-3} more`:''):'None';
@@ -1007,6 +1039,7 @@ function candidates(M){
   C.push({catalog:'status_mix',slot:2,kind:'bar',title:'Items by stock status',hint:'count of items',rows:sts.map(s=>({l:s==='NODATA'?'No usage data':s[0]+s.slice(1).toLowerCase(),v:M.filter(x=>x.status===s).length,c:stColor[s]})),total:sts.length,coverage:1,
     m:{label:'Items',additive:true,relevance:2},how:'count',fmt:v=>inr(v),question:'How many items need action?'});
   D.filter(d=>!d.isItem).forEach(d=>{ const s=specCustom(M,hasRate?'value':'stock',d.key,'sum',10,'by_group'); if(s){ s.slot=3; C.push(s);} });
+  if(S.meta.noStock) D.filter(d=>!d.isItem&&!['status','fsn','unit'].includes(d.key)).forEach(d=>{ [['rate','avg'],[null,'count']].forEach(([mk,how])=>{ const s=specCustom(M,mk||'rate',d.key,how,10,'by_group'); if(s){ s.slot=mk?3:1; C.push(s);} }); });
   ['value','stock','sugg'].forEach(k=>{ const s=specCustom(M,k,'item','sum',10,'top_items'); if(s){ s.slot=k==='sugg'?2:3; C.push(s);} });
   return C;
 }
@@ -1318,7 +1351,7 @@ function renderInv(){
   const shown=rows.slice(0,500);
   $('#invCount').textContent = `${inr(rows.length)} items${rows.length>500?' (first 500 shown — use search)':''}`;
   $('#invT').innerHTML=`<thead><tr><th>Code</th><th>Item</th><th>Category</th><th class="n">Stock</th><th class="n" title="weighted mix of last-7-day and 30-day rate (see Reorder Planner)">Sales velocity /day</th><th class="n">14-day trend</th><th class="n">Days cover</th><th class="n">Lead</th><th class="n">ROP</th><th title="F = fast (≤30 days cover), S = slow, N = non-moving">FSN</th><th>Status</th><th class="n">Value</th></tr></thead><tbody>`+
-    shown.map(x=>`<tr class="click" data-id="${x.id}"><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.cat)}</td><td class="n">${q2(x.stock)} ${esc(x.unit)}</td><td class="n">${x.avg!=null?q2(x.avg):'—'}</td><td class="n">${x.trendPct!=null?(x.trendPct>=0?'▲ ':'▼ ')+inr(Math.abs(x.trendPct))+'%':'—'}</td><td class="n">${x.cover!=null?inr(x.cover,1):'—'}</td><td class="n">${x.lead} d</td><td class="n">${x.rop!=null?q2(x.rop):'—'}</td><td>${x.fsn||'—'}</td><td>${stPill(x.status)}</td><td class="n">${x.rate?lakh(x.value):'—'}</td></tr>`).join('')+
+    shown.map(x=>`<tr class="click" data-id="${x.id}"><td>${esc(x.code)}</td><td>${esc(x.name)}</td><td>${esc(x.cat)}</td><td class="n">${stk(x)}</td><td class="n">${x.avg!=null?q2(x.avg):'—'}</td><td class="n">${x.trendPct!=null?(x.trendPct>=0?'▲ ':'▼ ')+inr(Math.abs(x.trendPct))+'%':'—'}</td><td class="n">${x.cover!=null?inr(x.cover,1):'—'}</td><td class="n">${x.lead} d</td><td class="n">${x.rop!=null?q2(x.rop):'—'}</td><td>${x.fsn||'—'}</td><td>${stPill(x.status)}</td><td class="n">${x.rate?lakh(x.value):'—'}</td></tr>`).join('')+
     (rows.length?'':'<tr><td colspan="12" class="hint">No items match.</td></tr>')+'</tbody>';
   $$('#invT tr.click').forEach(tr=>tr.onclick=()=>showItem(tr.dataset.id));
 }
@@ -1331,13 +1364,13 @@ function showItem(id){
     mkChart('cItem',{type:'line',data:{labels:histLabels(hn),datasets:[{label:'Issued',data:x.hist.slice(-hn),borderColor:css('--s1'),backgroundColor:css('--s1'),borderWidth:2,pointRadius:0,pointHoverRadius:5,tension:.2}]},
       options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${q2(c.parsed.y)} ${x.unit}`}}},scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8,maxRotation:0}},y:{beginAtZero:true}}}});
   } else $('#itemBox').hidden=true;
-  $('#detailFacts').innerHTML=`Stock <b>${q2(x.stock)} ${esc(x.unit)}</b> · avg use ${x.avg!=null?q2(x.avg)+'/day (from '+x.avgSrc+')':'not available'} · ${x.cover!=null?`lasts <b>${inr(x.cover,1)} days</b> (to ~${fmtDate(x.stockoutDate)})`:'days of cover unknown'} · lead time ${x.lead} days · ROP ${x.rop!=null?q2(x.rop):'—'} · ${stPill(x.status)}${x.sugg?` · suggested order: <b>${q2(x.sugg)} ${esc(x.unit)}</b>`:''}${x.vendor?' · supplier: '+esc(x.vendor):''}${x.extra?' · '+Object.entries(x.extra).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join(' · '):''}`;
+  $('#detailFacts').innerHTML=`Stock <b>${stk(x)}</b> · avg use ${x.avg!=null?q2(x.avg)+'/day (from '+x.avgSrc+')':'not available'} · ${x.cover!=null?`lasts <b>${inr(x.cover,1)} days</b> (to ~${fmtDate(x.stockoutDate)})`:'days of cover unknown'} · lead time ${x.lead} days · ROP ${x.rop!=null?q2(x.rop):'—'} · ${stPill(x.status)}${x.sugg?` · suggested order: <b>${q2(x.sugg)} ${esc(x.unit)}</b>`:''}${x.vendor?' · supplier: '+esc(x.vendor):''}${x.extra?' · '+Object.entries(x.extra).map(([k,v])=>`${esc(k)}: ${esc(v)}`).join(' · '):''}`;
   $('#detailCard').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function renderReorder(M){
   const rows=M.filter(x=>x.sugg>0).sort((a,b)=>(a.status==='CRITICAL'?0:1)-(b.status==='CRITICAL'?0:1)||(a.cover??0)-(b.cover??0));
   $('#roT').innerHTML=`<thead><tr><th>Item</th><th>Status</th><th class="n">Stock</th><th class="n">Sales velocity /day</th><th class="n">Days cover</th><th class="n">Lead</th><th>Order by</th><th class="n">Suggested qty</th><th class="n">Est. value</th><th>Supplier</th></tr></thead><tbody>`+
-    rows.map(x=>`<tr><td>${esc(x.name)}<br><span class="hint">${esc(x.code)}</span></td><td>${stPill(x.status)}</td><td class="n">${q2(x.stock)} ${esc(x.unit)}</td><td class="n">${x.avg!=null?q2(x.avg):'—'}</td><td class="n">${x.cover!=null?inr(x.cover,1):'—'}</td><td class="n">${x.lead} d</td><td>${x.slack==null?'—':x.slack<=0?'<b style="color:var(--crit)">Now</b>'+(x.slack<0?` <span class="hint">(${inr(-x.slack)} d late)</span>`:''):fmtDate(x.orderBy)}</td><td class="n"><b>${q2(x.sugg)}</b> ${esc(x.unit)}</td><td class="n">${x.rate?lakh(x.orderValue):'—'}</td><td>${esc(x.vendor)||'—'}</td></tr>`).join('')+
+    rows.map(x=>`<tr><td>${esc(x.name)}<br><span class="hint">${esc(x.code)}</span></td><td>${stPill(x.status)}</td><td class="n">${stk(x)}</td><td class="n">${x.avg!=null?q2(x.avg):'—'}</td><td class="n">${x.cover!=null?inr(x.cover,1):'—'}</td><td class="n">${x.lead} d</td><td>${x.slack==null?'—':x.slack<=0?'<b style="color:var(--crit)">Now</b>'+(x.slack<0?` <span class="hint">(${inr(-x.slack)} d late)</span>`:''):fmtDate(x.orderBy)}</td><td class="n"><b>${q2(x.sugg)}</b> ${esc(x.unit)}</td><td class="n">${x.rate?lakh(x.orderValue):'—'}</td><td>${esc(x.vendor)||'—'}</td></tr>`).join('')+
     (rows.length?'':'<tr><td colspan="10" class="hint">Nothing to reorder.</td></tr>')+'</tbody>';
 }
 function renderTx(){ const r=S.tx.slice(-15).reverse();
@@ -1534,10 +1567,10 @@ function offlineAnswer(q){
     const attr=(()=>{ const T=' '+norm(t)+' '; for(const x of M){ if(!x.extra) continue; for(const [h,v] of Object.entries(x.extra)){ const nv=norm(v); if(nv.length>=2 && T.includes(' '+nv+' ') && (nv.length>=4 || T.includes(' '+norm(h).split(' ')[0]+' '))) return [h,v]; } } return null; })();
     if(attr && !findItem(q)){ const [h,v]=attr, f=M.filter(x=>x.extra&&x.extra[h]===v); const units=[...new Set(f.map(x=>x.unit))];
       if(f.length>10) return `**${inr(f.length)} records with ${h} = ${v}**\n- Total stock: ${q2(f.reduce((a,x)=>a+x.stock,0))}${units.length===1?' '+units[0]:''}${f.some(x=>x.rate)?`\n- Stock value: ${lakh(f.reduce((a,x)=>a+x.value,0))} · average rate ₹${inr(f.reduce((a,x)=>a+x.rate,0)/f.length,2)}`:''}\n- Status: ${['CRITICAL','LOW','OK','EXCESS','NODATA'].map(st=>[st,f.filter(x=>x.status===st).length]).filter(z=>z[1]).map(([st,n])=>(st==='NODATA'?'no usage data':st.toLowerCase())+' '+n).join(', ')}\nAsk e.g. “total ${Object.keys(f[0].raw||{}).find(k=>typeof f[0].raw[k]==='number'&&!(S.meta.mapped||[]).includes(k))||'stock'} for ${v}” for more.`;
-      return `${f.length} item${f.length>1?'s':''} with ${h} = ${v}:\n`+list(f,x=>`- ${x.name}: ${q2(x.stock)} ${x.unit} · ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · order ${q2(x.sugg)} ${x.unit}`:''}`); }
-    if(ven){ const f=M.filter(x=>x.vendor===ven); return `${f.length} item${f.length>1?'s':''} from ${ven}:\n`+list(f,x=>`- ${x.name}: ${q2(x.stock)} ${x.unit} · ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · order ${q2(x.sugg)} ${x.unit}`:''}`); }
+      return `${f.length} item${f.length>1?'s':''} with ${h} = ${v}:\n`+list(f,x=>`- ${x.name}: ${stk(x)} · ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · order ${q2(x.sugg)} ${x.unit}`:''}`); }
+    if(ven){ const f=M.filter(x=>x.vendor===ven); return `${f.length} item${f.length>1?'s':''} from ${ven}:\n`+list(f,x=>`- ${x.name}: ${stk(x)} · ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · order ${q2(x.sugg)} ${x.unit}`:''}`); }
     if(/critical|urgent|alert|low stock|running low|shortage|risk|run out/.test(t)){ const c=M.filter(x=>x.status==='CRITICAL'), l=M.filter(x=>x.status==='LOW');
-      return `**🔔 Critical — will run out before a new lot arrives: ${c.length}**\n`+(list(c,x=>`- ${x.name}: ${x.cover!=null?inr(x.cover,1)+' days left (~'+fmtDate(x.stockoutDate)+') vs '+x.lead+'-day lead time':'stock '+q2(x.stock)+' '+x.unit}${x.sugg?` → order ${q2(x.sugg)} ${x.unit} today`:''}`)||'- none')+`\n**Below reorder point: ${l.length}**\n`+(list(l,x=>`- ${x.name}: ${q2(x.stock)} ${x.unit} (ROP ${q2(x.rop)})${x.orderBy?` → order by ${fmtDate(x.orderBy)}`:''}`)||'- none'); }
+      return `**🔔 Critical — will run out before a new lot arrives: ${c.length}**\n`+(list(c,x=>`- ${x.name}: ${x.cover!=null?inr(x.cover,1)+' days left (~'+fmtDate(x.stockoutDate)+') vs '+x.lead+'-day lead time':'stock '+q2(x.stock)+' '+x.unit}${x.sugg?` → order ${q2(x.sugg)} ${x.unit} today`:''}`)||'- none')+`\n**Below reorder point: ${l.length}**\n`+(list(l,x=>`- ${x.name}: ${stk(x)} (ROP ${q2(x.rop)})${x.orderBy?` → order by ${fmtDate(x.orderBy)}`:''}`)||'- none'); }
     if(/out of stock|zero stock|stock ?out now/.test(t)){ const o=M.filter(x=>x.stock<=0); return o.length?'Out of stock now:\n'+list(o,x=>`- ${x.name}${x.avg>0?` (selling ${q2(x.avg)} ${x.unit}/day)`:''}`):'No item is at zero stock.'; }
     if(/fast.?moving|best.?sell|top.?sell|highest (sales|demand|velocity)|moving fast/.test(t)){ const f=M.filter(x=>x.fsn==='F').sort((a,b)=>(b.avg*(b.rate||1))-(a.avg*(a.rate||1)));
       return f.length?`Fast-moving items (${fastDays()} days of cover or less), by sales velocity:\n`+list(f,x=>`- ${x.name}: ${q2(x.avg)} ${x.unit}/day, ${inr(x.cover,1)} days cover`):'No fast-moving items found (needs usage data).'; }
@@ -1548,11 +1581,11 @@ function offlineAnswer(q){
     if(/order by|when (should|to) (i )?order|deadline/.test(t)){ const f=M.filter(x=>x.slack!=null&&x.slack<15).sort((a,b)=>a.slack-b.slack);
       return f.length?'Order deadlines (stock-out date − lead time):\n'+list(f,x=>`- ${x.name}: ${x.slack<=0?'order NOW':'order by '+fmtDate(x.orderBy)}`):'No orders due in the next 2 weeks.'; }
     const cat=[...new Set(M.map(x=>x.cat))].find(c=>c.length>=2&&c!=='Uncategorised'&&(' '+t+' ').includes(' '+c.toLowerCase()+' '));
-    if(cat && /items|list|show|in |category|group/.test(t)){ const f=M.filter(x=>x.cat===cat); return `${f.length} items in ${cat}:\n`+list(f,x=>`- ${x.name}: ${q2(x.stock)} ${x.unit} · ${x.status==='NODATA'?'no usage data':x.status}`); }
+    if(cat && /items|list|show|in |category|group/.test(t)){ const f=M.filter(x=>x.cat===cat); return `${f.length} items in ${cat}:\n`+list(f,x=>`- ${x.name}: ${stk(x)} · ${x.status==='NODATA'?'no usage data':x.status}`); }
     if(/reorder|purchase|buy|\bpo\b|order/.test(t)){ const r=M.filter(x=>x.sugg>0).sort((a,b)=>(a.status==='CRITICAL'?0:1)-(b.status==='CRITICAL'?0:1));
       return r.length?`Suggested orders based on sales velocity (safety ${safetyDays()} days):\n`+list(r,x=>`- ${x.name}: ${q2(x.sugg)} ${x.unit} — selling ${x.avg!=null?q2(x.avg):'?'}/day, ${x.slack!=null&&x.slack<=0?'order now':x.orderBy?'order by '+fmtDate(x.orderBy):''}`)+'\nA human approves every PO.':'No item needs reordering right now.'; }
     if(/excess|overstock|too much|slow|dead|non.?moving/.test(t)){ const e=M.filter(x=>x.status==='EXCESS').sort((a,b)=>b.value-a.value);
-      return e.length?'Excess or non-moving stock:\n'+list(e,x=>`- ${x.name}: ${q2(x.stock)} ${x.unit}${x.cover!=null?', '+inr(x.cover)+' days cover':' (no use in period)'}${x.rate?', '+lakh(x.value):''}`):'No item is above its max level.'; }
+      return e.length?'Excess or non-moving stock:\n'+list(e,x=>`- ${x.name}: ${stk(x)}${x.cover!=null?', '+inr(x.cover)+' days cover':' (no use in period)'}${x.rate?', '+lakh(x.value):''}`):'No item is above its max level.'; }
     if(/total|value|worth/.test(t)) return `Total stock value is ${lakh(M.reduce((a,x)=>a+x.value,0))} across ${inr(M.length)} items (data as of ${fmtDate(S.meta.asOf)}).`;
     if(/how many items|count|categor/.test(t)){ const cats=[...new Set(M.map(x=>x.cat))]; return `${inr(M.length)} items in ${cats.length} categories: ${cats.slice(0,8).join(', ')}${cats.length>8?' …':''}.`; }
   }
@@ -1561,12 +1594,12 @@ function offlineAnswer(q){
     if(same.length>1 && !/lead|vendor|supplier/.test(t)){ const units=[...new Set(same.map(y=>y.unit))], st=same.reduce((a,y)=>a+y.stock,0);
       return `**${x.name}** appears in **${inr(same.length)} records** in your file:\n- Total stock: ${q2(st)}${units.length===1?' '+units[0]:''}\n- Average stock per record: ${q2(st/same.length)}${same.some(y=>y.rate)?`\n- Stock value: ${lakh(same.reduce((a,y)=>a+y.value,0))} · average rate ₹${inr(same.reduce((a,y)=>a+y.rate,0)/same.length,2)}`:''}${same.some(y=>y.sugg)?`\n- Records needing reorder: ${same.filter(y=>y.sugg).length}`:''}\nAsk e.g. “total SalesValue for ${x.name}” or open the Inventory tab and search “${x.name}”.`; }
     if(/lead|vendor|supplier|source/.test(t)) return `${x.name}: supplier ${x.vendor||'not in file'}, lead time ${x.lead} days${x.moq?', MOQ '+q2(x.moq)+' '+x.unit:''}.`;
-    if(/run out|last|cover|stock.?out|when/.test(t)) return x.cover!=null?`${x.name} will last about **${inr(x.cover,1)} days** (to ~${fmtDate(x.stockoutDate)}) at ${q2(x.avg)} ${x.unit}/day. Lead time is ${x.lead} days → ${x.status}.`:`There is no usage data for ${x.name}, so I can't estimate when it runs out. Stock is ${q2(x.stock)} ${x.unit}.`;
+    if(/run out|last|cover|stock.?out|when/.test(t)) return x.cover!=null?`${x.name} will last about **${inr(x.cover,1)} days** (to ~${fmtDate(x.stockoutDate)}) at ${q2(x.avg)} ${x.unit}/day. Lead time is ${x.lead} days → ${x.status}.`:`There is no usage data for ${x.name}, so I can't estimate when it runs out. Stock is ${stk(x)}.`;
     if(/usage|consum|\buse\b|velocity|trend|sales|selling|demand/.test(t)) return x.avg!=null?`${x.name}: sales velocity ${q2(x.avg)} ${x.unit}/day${x.v7!=null?` (last 7 days ${q2(x.v7)}, 30-day ${q2(x.v30)})`:''}${x.trendPct!=null?`; last 14 days ${x.trendPct>=0?'up':'down'} ${inr(Math.abs(x.trendPct))}% vs the prior 14`:''}.`:`No usage data for ${x.name} in the uploaded file.`;
     if(/order|reorder|buy|how much should/.test(t)) return x.sugg?`Suggested order: **${q2(x.sugg)} ${x.unit}** of ${x.name} (max ${q2(x.max)} − stock ${q2(x.stock)}${x.moq?', rounded to MOQ '+q2(x.moq):''}). Based on sales velocity ${q2(x.avg)} ${x.unit}/day; ${x.slack<=0?'order now':'order by '+fmtDate(x.orderBy)}.`:`${x.name} is ${x.status==='NODATA'?'without usage data':x.status}; no reorder suggested (stock ${q2(x.stock)}${x.rop!=null?' vs ROP '+q2(x.rop):''} ${x.unit}).`;
     if(/value|price|rate|cost/.test(t)) return x.rate?`${x.name}: rate ₹${inr(x.rate,2)}/${x.unit}, stock value ${lakh(x.value)}.`:`No rate for ${x.name} in the file.`;
     if(x.extra){ const hk=Object.keys(x.extra).find(h=>norm(h).split(' ').some(w=>w.length>=3&&(' '+norm(t)+' ').includes(' '+w+' '))); if(hk) return `${x.name}: ${hk} = **${x.extra[hk]}**.`; }
-    return `**${x.name}**${x.code?' ('+x.code+')':''}: ${q2(x.stock)} ${x.unit} in stock${x.avg!=null?(x.avg>0?` · ${q2(x.avg)}/day use`:' · no use in the period'):''}${x.cover!=null?` · ${inr(x.cover,1)} days cover`:''} · status ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · suggested order ${q2(x.sugg)} ${x.unit}`:''}${x.extra?' · '+Object.entries(x.extra).map(([k,v])=>k+': '+v).join(' · '):''}.`;
+    return `**${x.name}**${x.code?' ('+x.code+')':''}: ${stk(x)} in stock${x.avg!=null?(x.avg>0?` · ${q2(x.avg)}/day use`:' · no use in the period'):''}${x.cover!=null?` · ${inr(x.cover,1)} days cover`:''} · status ${x.status==='NODATA'?'no usage data':x.status}${x.sugg?` · suggested order ${q2(x.sugg)} ${x.unit}`:''}${x.extra?' · '+Object.entries(x.extra).map(([k,v])=>k+': '+v).join(' · '):''}.`;
   }
   if(findItem.ambiguous) return 'I found more than one possible match. Did you mean:\n'+findItem.ambiguous.map(x=>`- ${x.name}${x.code?' ('+x.code+')':''}`).join('\n');
   if(/how much|stock|left|balance|quantity/.test(t)) return `Which item do you mean? For example: ${M.slice(0,3).map(x=>x.name).join(', ')}.`;
@@ -1641,7 +1674,7 @@ function init(){
   drop.ondragover=e=>{e.preventDefault();drop.classList.add('over');}; drop.ondragleave=()=>drop.classList.remove('over');
   drop.ondrop=e=>{e.preventDefault();drop.classList.remove('over');readFiles(e.dataTransfer.files);};
   $('#tplBtn').onclick=downloadTemplate; $('#sampleBtn').onclick=loadSample;
-  $('#buildBtn').onclick=buildDataset; $('#aiMapBtn').onclick=aiMapAll; $('#cancelMap').onclick=()=>{pending=null;$('#mapCard').hidden=true;$('#upMsg').textContent='';};
+  $('#buildBtn').onclick=()=>{ pending.sheets.forEach(s=>{ if(s.role!=='ignore') sanitize(s); }); buildDataset(false); }; $('#aiMapBtn').onclick=aiMapAll; $('#cancelMap').onclick=()=>{pending=null;$('#mapCard').hidden=true;$('#upMsg').textContent='';};
   ['#q','#fCat','#fSt','#fFsn'].forEach(s=>$(s).addEventListener('input',renderInv));
   ['#safety','#cycle','#w7','#fastDays'].forEach(s=>$(s).addEventListener('input',()=>{ saveCfg(); renderAll(); }));
   $('#csvBtn').onclick=exportCSV; $('#entryForm').addEventListener('submit',onEntry);
@@ -1685,7 +1718,7 @@ function startApp(sess){
   $('#login').hidden=true; $('#shell').hidden=false; document.title=sess.company+' · Inventory & Stock Assistant';
   $('#coName').textContent=sess.company; $('#userChip').textContent=(sess.user?sess.user+' · ':'')+sess.role; $('#avatar').textContent=sess.company.trim()[0].toUpperCase();
   init();
-  if(!hasData() && sess.demo){ loadSample(); $('#dsInput').value=sess.company; buildDataset(); }
+  if(!hasData() && sess.demo){ loadSample(); $('#dsInput').value=sess.company; }
   if(!S.meta || !S.meta.name){ $('#dsInput').value=sess.company; }
 }
 function showLogin(){
