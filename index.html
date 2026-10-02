@@ -112,6 +112,7 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--in
 .cks{margin:4px 0 0;padding-left:16px}.cks li{margin:2px 0}.cks li.fail b{color:var(--crit)}.cks li.warn b{color:#b07800}.cks li.pass b{color:var(--good)}
 .pol{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--grid);font-size:13px}
 details.card>summary{cursor:pointer}
+table.corr{border-collapse:separate;border-spacing:2px;font-size:11.5px}table.corr td{text-align:center;padding:6px 4px;border-radius:4px;min-width:46px;border:0}table.corr th{font-size:11px;padding:4px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:static}
 /* chat */
 #fab{position:fixed;right:18px;bottom:18px;background:var(--brand);color:#fff;border:0;border-radius:99px;padding:12px 18px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;z-index:20}
 #chat{position:fixed;right:18px;bottom:18px;width:400px;max-width:calc(100vw - 32px);height:600px;max-height:calc(100vh - 36px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.3);display:none;flex-direction:column;z-index:30;overflow:hidden}
@@ -213,6 +214,8 @@ details.card>summary{cursor:pointer}
     </div>
     <div class="card"><h3 id="t3"></h3><div class="chartbox" id="b3"><canvas id="c3"></canvas></div><div id="e3"></div></div>
   </div>
+  <div class="card" style="margin-top:12px"><h3 style="margin-bottom:2px">Insights gallery <span class="hint">time series · clustered column · Pareto · histogram · scatter · correlation — only patterns the engine approved</span></h3><div class="hint" id="gallerySum"></div>
+    <div class="grid two" id="gallery" style="margin-top:10px"></div></div>
   <div class="card" style="margin-top:12px">
     <div class="toolbar"><h3 style="margin:0;flex:1">Build your own chart <span class="hint">every chart is checked by the evaluation engine before it is drawn · or ask the chat, e.g. “chart stock value by supplier”</span></h3></div>
     <div class="toolbar">
@@ -403,7 +406,7 @@ const MASTER_FIELDS = [
  ['rate','Rate / unit price',['rate','price','unit price','unit cost','cost','rate per unit','price per unit']],
  ['value','Stock value',['value','stock value','closing value','amount','inventory value']],
  ['vendor','Supplier',['vendor','supplier','source','party','vendor name','supplier name']],
- ['stock','Current stock',['current stock','stock','closing stock','qty on hand','on hand','balance','closing balance','stock qty','closing qty','available','quantity','qty','inventory']],
+ ['stock','Current stock',['stock quantity','quantity in stock','qty in stock','inventory level','stock on hand','current stock','stock','closing stock','qty on hand','on hand','balance','closing balance','stock qty','closing qty','available','quantity','qty','inventory']],
 ];
 const MOVE_FIELDS = [
  ['date','Date',['date','txn date','voucher date','posting date','trans date','transaction date','entry date']],
@@ -411,12 +414,14 @@ const MOVE_FIELDS = [
  ['item','Item (code or name)',['item code','code','sku','material','item name','item','name','product','description','particulars']],
  ['qty','Quantity',['qty','quantity','qty in une','issued qty','issue qty','consumption','quantity issued','qty out','outward','out qty','used','issued']],
 ];
+const FIELD_NEG={stock:/rate|turnover|value|price|cost|reorder|min|max|sold|sales|order|forecast|days|safety/,rate:/turnover|discount|tax|rate of/,value:/rate|turnover/,name:/id|code|supplier|vendor|warehouse|location/,code:/supplier|vendor|warehouse/,lead:/turnover/,qty:/reorder|min|max/};
 function autoMap(headers, fields){
   const H = headers.map(h=>({h, n:norm(h)}));
   // score every (field, column) pair, then assign the most specific matches first — no field "steals" a column by order
   const cand=[];
   fields.forEach(([key,,syn],fi)=>H.forEach(x=>{ if(!x.n) return; let sc=0;
     syn.forEach(s=>{ if(x.n===s) sc=Math.max(sc,300+s.length); else if(s.length>=3 && (' '+x.n+' ').includes(' '+s+' ')) sc=Math.max(sc,200+s.length); });
+    if(sc && FIELD_NEG[key] && FIELD_NEG[key].test(x.n) && sc<300) sc=0;   // e.g. "Inventory Turnover Rate" is not stock
     if(sc) cand.push({key,h:x.h,sc,fi}); }));
   cand.sort((a,b)=>b.sc-a.sc||a.fi-b.fi);
   const used=new Set(), map={};
@@ -575,6 +580,8 @@ function renderMapping(){
 function num(v){ if(v==null||v==='') return null; if(typeof v==='number') return isFinite(v)?v:null; const s=String(v).replace(/[₹,\s]/g,'').replace(/^\((.*)\)$/,'-$1'); const m=s.match(/^-?\d*\.?\d+(e-?\d+)?/i); return m?Number(m[0]):null; }
 function mkD(y,mo,d){ const x=new Date(y,mo,d); return (x.getFullYear()===y&&x.getMonth()===mo&&x.getDate()===d)?x.getTime():null; }
 const MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function detectDateOrder(vals){ let dm=0, md=0; vals.slice(0,500).forEach(v=>{ const m=String(v??'').trim().match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/); if(!m) return; if(+m[1]>12) dm++; if(+m[2]>12) md++; }); return md>dm?'mdy':'dmy'; }
+function parseDateOrd(v,ord){ if(ord==='mdy' && typeof v==='string'){ const m=v.trim().match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/); if(m){ let y=+m[3]; if(y<100)y+=2000; return mkD(y,+m[1]-1,+m[2]); } } return parseDate(v); }
 function parseDate(v){
   if(v==null||v==='') return null;
   if(v instanceof Date && !isNaN(v)) return dayStart(new Date(v.getTime()+12*3600e3)); // guard against timezone rounding
@@ -631,8 +638,9 @@ function buildDataset(){
   if(!items.length){ $('#mapErr').textContent='No valid item rows found — check that the right columns are selected.'; return; }
   let maxD=null, minD=null; const raw=[];
   moves.forEach(s=>{ const M=s.map; const hasNeg=s.rows.some(r=>(num(r[M.qty])||0)<0);
+    const dOrd=detectDateOrder(s.rows.map(r=>r[M.date]));
     s.rows.forEach(r=>{ Q.moveRows++;
-      const d=parseDate(r[M.date]); if(d==null){ Q.moveBadDate++; return; }
+      const d=parseDateOrd(r[M.date],dOrd); if(d==null){ Q.moveBadDate++; return; }
       let qn=num(r[M.qty]); if(qn==null||qn===0){ Q.moveBadQty++; return; }
       const raw_key=String(r[M.item]??'').trim(), it=byKey.get(raw_key.toLowerCase());
       if(!it){ Q.moveUnmatched++; if(Q.unmatchedEx.length<3&&!Q.unmatchedEx.includes(raw_key)) Q.unmatchedEx.push(raw_key); return; }
@@ -853,7 +861,9 @@ function dims(M){
   add('cat','Category',x=>x.cat==='Uncategorised'?'':x.cat); add('vendor','Supplier',x=>x.vendor); add('status','Status',x=>x.status==='NODATA'?'No usage data':x.status);
   add('fsn','Movement (F/S/N)',x=>({F:'Fast',S:'Slow',N:'Non-moving'}[x.fsn]||'')); add('unit','Unit',x=>x.unit);
   const mapped=new Set(S.meta.mapped||[]), heads=[...new Set(M.flatMap(x=>Object.keys(x.raw||{})))];
-  heads.filter(h=>!mapped.has(h)).forEach(h=>{ const vals=M.map(x=>x.raw?.[h]).filter(v=>v!=null); if(vals.length && vals.every(v=>typeof v==='string')) add('raw:'+h,h,x=>x.raw?.[h]??''); });
+  heads.filter(h=>!mapped.has(h)).forEach(h=>{ const vals=M.map(x=>x.raw?.[h]).filter(v=>v!=null); if(!vals.length || !vals.every(v=>typeof v==='string')) return;
+    const dateLike=vals.slice(0,200).filter(v=>/^\d{1,4}[-\/.]\d{1,2}[-\/.]\d{1,4}$|^\d{1,2}[- ][A-Za-z]{3}[- ]\d{2,4}$/.test(v.trim())).length>=Math.min(200,vals.length)*0.8;
+    if(!dateLike && new Set(vals).size<=100) add('raw:'+h,h,x=>x.raw?.[h]??''); });
   D.push({key:'item',label:'Item',get:x=>x.name,n:M.length,isItem:true});
   return D.filter(d=>!(d.key.startsWith('raw:') && (d.n===M.length || D.some(o=>!o.key.startsWith('raw:')&&!o.isItem&&o.n===d.n&&M.every(x=>o.get(x)===d.get(x))))));
 }
@@ -897,7 +907,7 @@ function candidates(M){
 }
 
 /* ---- evaluation ---- */
-function evaluate(sp, M){
+let evaluate=function(sp, M){
   const ck=[]; const P=policy(); let score=100, fix=null;
   const add=(name,status,msg,pen=0)=>{ ck.push({name,status,msg}); score-=pen; };
   if(!P[sp.catalog]) add('Approved chart list','fail',`“${CATALOG.find(c=>c.id===sp.catalog)?.name}” is switched off in Settings › Chart governance.`,100);
@@ -936,7 +946,7 @@ function evaluate(sp, M){
   score=Math.max(0,Math.min(100,score));
   const failed=ck.some(c=>c.status==='fail'), verdict=failed?'REJECTED':score>=60?'APPROVED':'REJECTED';
   return {verdict,score,checks:ck,fix};
-}
+};
 
 /* ---- rendering of approved charts ---- */
 function drawSpec(cid, box, sp){
@@ -960,19 +970,164 @@ function renderCharts(M){
   if(!window.Chart) return;
   const C=candidates(M); lastAudit=[]; const used=new Set();
   C.forEach(sp=>{ sp.ev=evaluate(sp,M); lastAudit.push(sp); });
+  const A=advCandidates(M); A.forEach(sp=>{ sp.ev=evaluate(sp,M); lastAudit.push(sp); });
   const GP={cat:4,vendor:3,fsn:1,status:0,unit:-3,item:0}; const rank=sp=>sp.ev.score+(sp.m?.relevance||0)*3+(sp.d?(GP[sp.d.key]??2):0);
   [1,2,3].forEach(slot=>{
-    const pick=C.filter(sp=>sp.slot===slot&&sp.ev.verdict==='APPROVED'&&!used.has(sp)).sort((a,b)=>rank(b)-rank(a))[0];
+    let pick=C.filter(sp=>sp.slot===slot&&sp.ev.verdict==='APPROVED'&&!used.has(sp)).sort((a,b)=>rank(b)-rank(a))[0];
+    const fam=sp=>({combo:'time',timeseries:'time',trend:'time'}[sp.catalog]||sp.catalog);
+    if(!pick){ const FILL=['combo','timeseries','top_items','pareto','cluster','by_group','histogram','status_mix'];   // preferred chart families for an empty slot
+      pick=C.concat(A).filter(sp=>sp.ev.verdict==='APPROVED'&&!used.has(sp)&&FILL.includes(sp.catalog)&&![...used].some(u=>fam(u)===fam(sp))&&!(slot===2&&sp.catalog==='by_group')).sort((a,b)=>FILL.indexOf(a.catalog)-FILL.indexOf(b.catalog)||(rank(b)+(b.insight||0)*20)-(rank(a)+(a.insight||0)*20))[0]; }  // fill an empty slot with the best approved chart of any family
     const box=$('#b'+slot), cid='c'+slot;
-    if(pick){ used.add(pick); pick.shown='Dashboard slot '+slot; $('#t'+slot).innerHTML=`${esc(pick.title)} <span class="hint">${esc(pick.hint||'')}</span>`; drawSpec(cid,box,pick);
+    if(pick){ used.add(pick); pick.shown='Dashboard slot '+slot; $('#t'+slot).innerHTML=`${esc(pick.title)} <span class="hint">${esc(pick.hint||'')}</span>`; (ADV_KINDS.includes(pick.kind)?drawAdv:drawSpec)(cid,box,pick);
       $('#e'+slot).innerHTML=(pick.legend?'<div class="hint" style="margin-top:6px"><span class="st CRITICAL">CRITICAL</span> <span class="st LOW">LOW</span> <span class="st OK">OK</span> <span class="st EXCESS">EXCESS</span> <span class="st NODATA">NO USAGE DATA</span></div>':'')+evalBadge(pick.ev,pick); }
     else { if(charts[cid]){charts[cid].destroy(); delete charts[cid];} box.style.height='auto';
       const rej=C.filter(sp=>sp.slot===slot).sort((a,b)=>b.ev.score-a.ev.score)[0];
       $('#t'+slot).textContent='No approved chart for this data';
       box.innerHTML=`<div class="empty">The engine checked ${C.filter(sp=>sp.slot===slot).length} possible chart(s) here and none passed.${rej?`<br>Closest: “${esc(rej.title)}” — ${esc(rej.ev.checks.find(c=>c.status==='fail')?.msg||'score too low')}`:''}</div>`; $('#e'+slot).innerHTML=''; }
   });
-  renderBuilder(M); renderPinned(M); renderAudit();
+  renderGallery(A); renderBuilder(M); renderPinned(M); renderAudit();
 }
+/* =====================================================================
+   ADVANCED CHART REASONING — every permutation of the uploaded columns is
+   considered by chart family, and only charts whose data shows a real
+   pattern are approved:
+     • Time series (line)            date column × measure / count
+     • Combo (bar + moving-avg line)  same series, same unit, one axis
+     • Ranked bar                     categorical × measure
+     • Clustered column               category × category × measure (only if groups differ a lot)
+     • Pareto (bar + cumulative %)    concentration of value / quantity
+     • Histogram                      distribution of one numeric column
+     • Scatter                        numeric × numeric — ONLY if the relationship is strong (|r| ≥ 0.6)
+     • Correlation matrix             3+ numeric columns — only if some pair correlates (|r| ≥ 0.3)
+   ===================================================================== */
+const PAL=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#4a3aa7','#e34948'];
+CATALOG.push(
+ {id:'timeseries',name:'Time series from date columns',type:'Line over time',purpose:'Shows how a measure or the number of items changes month by month.'},
+ {id:'combo',name:'Bar + moving-average line',type:'Combo (bar + line, one axis)',purpose:'Period totals as bars with a 3-period moving average to show the underlying trend.'},
+ {id:'cluster',name:'Clustered column',type:'Clustered column',purpose:'Compares one measure across two categorical columns at once.'},
+ {id:'pareto',name:'Pareto / ABC',type:'Bar + cumulative % line',purpose:'Shows how few groups hold most of the value (80/20 rule).'},
+ {id:'histogram',name:'Histogram',type:'Histogram',purpose:'Shows how the values of one column are distributed.'},
+ {id:'scatter',name:'Scatter plot',type:'Scatter',purpose:'Shows a strong relationship between two numeric columns.'},
+ {id:'corr',name:'Correlation matrix',type:'Heat-map matrix',purpose:'Shows which numeric columns move together.'});
+const ADV_KINDS=['timeseries','combo','cluster','pareto','histogram','scatter','corr'];
+function pearson(a,b){ const n=a.length; if(n<3) return 0; let sa=0,sb=0; for(let i=0;i<n;i++){sa+=a[i];sb+=b[i];} const ma=sa/n, mb=sb/n; let cov=0,va=0,vb=0; for(let i=0;i<n;i++){ const x=a[i]-ma,y=b[i]-mb; cov+=x*y; va+=x*x; vb+=y*y; } return va&&vb? cov/Math.sqrt(va*vb) : 0; }
+function stats(v){ const n=v.length; const mean=v.reduce((a,b)=>a+b,0)/n; const sd=Math.sqrt(v.reduce((a,b)=>a+(b-mean)**2,0)/n); const skew=sd?v.reduce((a,b)=>a+((b-mean)/sd)**3,0)/n:0; return {n,mean,sd,cv:mean?sd/Math.abs(mean):0,skew,min:Math.min(...v),max:Math.max(...v),distinct:new Set(v).size}; }
+function numericCols(M){
+  // per-item numeric features: computed measures + numeric columns from the file (no IDs)
+  return measures(M).filter(m=>!m.idLike).map(m=>({...m,vals:M.map(x=>{const v=m.get(x); return v!=null&&isFinite(v)?v:null;})})).filter(c=>c.vals.filter(v=>v!=null).length>=Math.max(3,M.length*0.5))
+    .filter((c,i,arr)=>!arr.slice(0,i).some(o=>o.vals.every((v,j)=>v===c.vals[j])));   // drop exact duplicates (e.g. stock mapped twice)
+}
+function dateCols(M){
+  const mapped=new Set(S.meta.mapped||[]), heads=[...new Set(M.flatMap(x=>Object.keys(x.raw||{})))], out=[];
+  heads.filter(h=>!mapped.has(h)).forEach(h=>{ const vals=M.map(x=>x.raw?.[h]).filter(v=>v!=null); if(vals.length<M.length*0.5||typeof vals[0]!=='string') return;
+    const ord=detectDateOrder(M.map(x=>x.raw?.[h])); const ts=M.map(x=>{ const v=x.raw?.[h]; return typeof v==='string'&&/[-\/ ]/.test(v)?parseDateOrd(v,ord):null; }); const ok=ts.filter(t=>t!=null).length;
+    if(ok>=vals.length*0.8) out.push({h,ts}); });
+  return out;
+}
+function advCandidates(M){
+  const C=[], NCall=numericCols(M), NC=NCall.slice(0,10), D=dims(M).filter(d=>!d.isItem&&d.n>=2), add=sp=>C.push(sp);
+  const DERIVED=new Set(['value','cover','rop','sugg','orderValue']);   // built from other columns by formula → relationships are not insights
+  const IND=NCall.filter(c=>!DERIVED.has(c.key) && stats(c.vals.filter(v=>v!=null)).sd>0).slice(0,10);   // constant columns carry no correlation
+  // 1. time series + combo from date columns
+  dateCols(M).forEach(dc=>{
+    const t=dc.ts.filter(x=>x!=null); const lo=Math.min(...t), hi=Math.max(...t), spanD=(hi-lo)/DAY, monthly=spanD>62;
+    const key=ts=>{ const d=new Date(ts); return monthly? d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0') : iso(ts); };
+    const lab=k=>monthly? new Date(k+'-01T00:00:00').toLocaleDateString('en-GB',{month:'short',year:'2-digit'}) : new Date(k+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    const keys=[]; { let d=new Date(lo); d.setDate(1); if(!monthly) d=new Date(lo); while(d.getTime()<=hi && keys.length<400){ keys.push(key(d.getTime())); if(monthly) d.setMonth(d.getMonth()+1); else d.setDate(d.getDate()+1); } }
+    const series=(get)=>{ const g=Object.fromEntries(keys.map(k=>[k,0])); M.forEach((x,i)=>{ const ts=dc.ts[i]; if(ts==null) return; const v=get?get(x):1; if(v!=null&&isFinite(v)) g[key(ts)]+=v; }); return keys.map(k=>({l:lab(k),v:+g[k].toFixed(2)})); };
+    const ms=[{label:'Number of items',get:null,money:false,unitBased:false,additive:true,relevance:1}].concat(NC.filter(c=>c.additive).slice(0,3));
+    ms.forEach(m=>{ const rows=series(m.get); const units=new Set(M.map(x=>x.unit));
+      add({catalog:'timeseries',kind:'line',title:`${m.label} by ${monthly?'month':'day'} of ${dc.h}`,hint:`${rows.length} ${monthly?'months':'days'}`,rows,total:rows.length,coverage:dc.ts.filter(x=>x!=null).length/M.length,m,how:'sum',unitsMixed:m.unitBased&&units.size>1,fmt:m.money?money:q2,question:`How does ${m.label.toLowerCase()} change over time (${dc.h})?`,insight:0});
+      if(m===ms[1]||(ms.length===1)){ const ma=rows.map((r,i)=>i<2?null:+((rows[i].v+rows[i-1].v+rows[i-2].v)/3).toFixed(2));
+        add({catalog:'combo',kind:'combo',title:`${m.label} by ${monthly?'month':'day'} of ${dc.h} with 3-period average`,hint:'bars = period total · line = moving average (same axis)',rows:rows.map((r,i)=>({...r,ma:ma[i]})),total:rows.length,coverage:1,m,how:'sum',unitsMixed:m.unitBased&&units.size>1,fmt:m.money?money:q2,question:'Is the period-to-period movement a real trend or noise?',insight:0}); } });
+  });
+  // 2. clustered column: two categorical columns × measure — only if the groups really differ
+  const DD=new Set(['status','fsn']); const prim=D.filter(d=>d.n<=10&&d.key!=='unit'), sec=D.filter(d=>d.n<=5&&d.key!=='unit');
+  const seenPair=new Set(); prim.forEach(d1=>sec.forEach(d2=>{ if(d1.key===d2.key||(DD.has(d1.key)&&DD.has(d2.key))) return; const pk=[d1.key,d2.key].sort().join('|'); if(seenPair.has(pk)&&d1.n<d2.n) return; if(seenPair.has(pk)){ const k=C.findIndex(c=>c.pairKey===pk); if(k>=0) C.splice(k,1); } seenPair.add(pk);
+    const m=NC.find(c=>c.money&&c.additive)||NC.find(c=>c.additive&&!c.unitBased)||NC.find(c=>c.key==='stock'); if(!m) return;
+    const g1=[...new Set(M.map(d1.get).filter(Boolean))], g2=[...new Set(M.map(d2.get).filter(Boolean))].slice(0,5);
+    const cell={}; M.forEach((x,i)=>{ const a=d1.get(x), b=d2.get(x), v=m.vals[i]; if(!a||!b||v==null) return; cell[a+'¦'+b]=(cell[a+'¦'+b]||0)+v; });
+    const vals=Object.values(cell); if(!vals.length) return; const st=stats(vals);
+    // interaction: does the split by d2 look different inside each d1 group?
+    const shares=g1.map(a=>{ const tot=g2.reduce((s,b)=>s+(cell[a+'¦'+b]||0),0)||1; return g2.map(b=>(cell[a+'¦'+b]||0)/tot); });
+    const spread=g2.map((_,j)=>{ const col=shares.map(r=>r[j]); return Math.max(...col)-Math.min(...col); }); const inter=Math.max(...spread);
+    add({pairKey:[d1.key,d2.key].sort().join('|'),catalog:'cluster',kind:'cluster',title:`${m.label} by ${d1.label.toLowerCase()} and ${d2.label.toLowerCase()}`,hint:`${g1.length} × ${g2.length} groups`,labels:g1.map(short),series:g2.map((b,j)=>({label:b,data:g1.map(a=>+((cell[a+'¦'+b]||0)).toFixed(2)),color:PAL[j]})),
+      rows:vals.map(v=>({v})),total:g1.length,coverage:1,m,how:'sum',unitsMixed:m.unitBased&&new Set(M.map(x=>x.unit)).size>1,fmt:m.money?money:q2,question:`Does the ${d2.label.toLowerCase()} mix differ between ${d1.label.toLowerCase()} groups?`,
+      gate:{name:'Groups differ enough',ok:inter>=0.25&&st.cv>=0.25,msg:`Largest share difference between ${d1.label.toLowerCase()} groups is ${inr(inter*100)} pts (need ≥ 25) · spread across cells CV ${inr(st.cv,2)} (need ≥ 0.25).`},insight:inter}); }));
+  // 3. pareto on the best grouping column
+  D.concat(dims(M).filter(d=>d.isItem)).filter(d=>d.n>=5&&d.n<=50).forEach(d=>{ /* Pareto only when every group can be shown */ const m=NC.find(c=>c.money&&c.additive)||NC.find(c=>c.key==='stock'); if(!m) return;
+    const {rows,total}=aggregate(M,m,d,'sum',d.isItem?30:20); const all=aggregate(M,m,d,'sum',1e9).rows; const tot=all.reduce((a,r)=>a+Math.max(0,r.v),0)||1;
+    let c=0; rows.forEach(r=>{ c+=Math.max(0,r.v); r.cum=+(c/tot*100).toFixed(1); });
+    const top20=all.slice(0,Math.max(1,Math.ceil(all.length*0.2))).reduce((a,r)=>a+Math.max(0,r.v),0)/tot;
+    add({catalog:'pareto',kind:'pareto',title:`Pareto: ${m.label} by ${d.label.toLowerCase()}`,hint:`bars = ${m.label.toLowerCase()} · line = cumulative % of total`,rows,total,coverage:1,m,how:'sum',unitsMixed:m.unitBased&&new Set(M.map(x=>x.unit)).size>1,fmt:m.money?money:q2,question:`Do a few ${d.label.toLowerCase()} groups hold most of the ${m.label.toLowerCase()}?`,
+      gate:{name:'Concentration (80/20)',ok:top20>=0.5,msg:`Top 20% of ${d.label.toLowerCase()} groups hold ${inr(top20*100)}% of the total (need ≥ 50% for a useful Pareto).`},insight:top20}); });
+  // 4. histograms
+  NC.forEach(c=>{ const v=c.vals.filter(x=>x!=null); if(v.length<3) return; const st=stats(v); const bins=Math.min(20,Math.max(5,Math.round(Math.sqrt(v.length)))); const w=(st.max-st.min)/bins||1;
+    const cnt=new Array(bins).fill(0); v.forEach(x=>{ cnt[Math.min(bins-1,Math.floor((x-st.min)/w))]++; }); const topShare=Math.max(...cnt)/v.length;
+    add({catalog:'histogram',kind:'histogram',title:`Distribution of ${c.label}`,hint:`${bins} bins · ${inr(v.length)} items`,rows:cnt.map((n,i)=>({l:(c.money?money:q2)(st.min+i*w),v:n,hi:(c.money?money:q2)(st.min+(i+1)*w)})),total:bins,coverage:v.length/M.length,m:{label:c.label,relevance:c.relevance,additive:true},how:'count',fmt:x=>inr(x),question:`How are ${c.label.toLowerCase()} values spread across items?`,
+      gate:{name:'Informative distribution',ok:v.length>=30&&st.distinct>=10&&topShare<0.8&&st.cv>=0.1,msg:`${inr(v.length)} values, ${inr(st.distinct)} distinct, largest bin holds ${inr(topShare*100)}%, CV ${inr(st.cv,2)}, skew ${inr(st.skew,2)} (need ≥ 30 values, ≥ 10 distinct, largest bin < 80%, CV ≥ 0.1).`},insight:Math.min(1,Math.abs(st.skew)/3)}); });
+  // 5. scatter for every numeric pair — only strong relationships survive
+  for(let i=0;i<IND.length;i++) for(let j=i+1;j<IND.length;j++){ const a=IND[i], b=IND[j]; const xs=[],ys=[],pts=[];
+    M.forEach((x,k)=>{ const u=a.vals[k], v=b.vals[k]; if(u!=null&&v!=null){ xs.push(u); ys.push(v); if(pts.length<1500) pts.push({x:u,y:v,n:x.name}); } });
+    if(xs.length<3) continue; const r=pearson(xs,ys);
+    add({catalog:'scatter',kind:'scatter',title:`${b.label} vs ${a.label}`,hint:`r = ${inr(r,2)} · ${inr(xs.length)} items`,pts,xl:a.label,yl:b.label,rows:pts.slice(0,50).map(p=>({v:p.y})),total:xs.length,coverage:xs.length/M.length,m:{label:b.label,relevance:Math.max(a.relevance,b.relevance),additive:true},how:'none',perItem:true,fmt:q2,xfmt:a.money?money:q2,yfmt:b.money?money:q2,question:`Do items with higher ${a.label.toLowerCase()} also have higher ${b.label.toLowerCase()}?`,
+      gate:{name:'Strong relationship',ok:xs.length>=15&&Math.abs(r)>=0.6,msg:`Correlation r = ${inr(r,2)} over ${inr(xs.length)} items (scatter is shown only when |r| ≥ 0.6 and ≥ 15 items; weaker pairs are skipped).`},insight:Math.abs(r),r}); }
+  // 6. correlation matrix
+  if(IND.length>=3){ const R=IND.map(a=>IND.map(b=>{ const xs=[],ys=[]; a.vals.forEach((u,k)=>{ const v=b.vals[k]; if(u!=null&&v!=null){xs.push(u);ys.push(v);} }); return xs.length>=3?pearson(xs,ys):0; }));
+    let mx=0; R.forEach((row,i)=>row.forEach((v,j)=>{ if(i!==j) mx=Math.max(mx,Math.abs(v)); }));
+    add({catalog:'corr',kind:'corr',title:'Correlation matrix of numeric columns',hint:`${IND.length} independent columns · Pearson r`,R,names:IND.map(c=>c.label),rows:IND.map(()=>({v:1})),total:IND.length,coverage:1,m:{label:'Correlation',relevance:1,additive:true},how:'none',perItem:true,fmt:v=>inr(v,2),question:'Which numeric columns move together?',
+      gate:{name:'Some columns related',ok:M.length>=15&&mx>=0.3,msg:`Strongest correlation between two different columns is |r| = ${inr(mx,2)} (need ≥ 0.3 and ≥ 15 items).`},insight:mx}); }
+  return C;
+}
+/* evaluation for advanced kinds: shared rules + the family-specific gate */
+const _evaluateBase=evaluate;
+evaluate=function(sp,M){
+  if(!ADV_KINDS.includes(sp.kind)) return _evaluateBase(sp,M);
+  const ck=[], P=policy(); let score=100; const add=(name,status,msg,pen=0)=>{ ck.push({name,status,msg}); score-=pen; };
+  const cat=CATALOG.find(c=>c.id===sp.catalog);
+  if(!P[sp.catalog]) add('Approved chart list','fail',`“${cat.name}” is switched off in Settings › Chart governance.`,100); else add('Approved chart list','pass',`${cat.type} — an approved chart type.`);
+  const n=sp.total;
+  if(['timeseries','combo'].includes(sp.kind)){ if(n<6) add('Enough data points','fail',`Only ${n} periods — a time series needs at least 6.`,50); else add('Enough data points','pass',`${n} periods.`); }
+  else if(sp.kind==='histogram'){ add('Enough data points', sp.coverage*M.length>=30?'pass':'fail', `${inr(sp.coverage*M.length)} values.`, sp.coverage*M.length>=30?0:50); }
+  else if(n<2) add('Enough groups to compare','fail',`Only ${n} group(s).`,50); else add('Enough groups to compare','pass',`${n} groups.`);
+  if(sp.coverage<0.5) add('Data coverage','fail',`Only ${inr(sp.coverage*100)}% of items have this value.`,50); else if(sp.coverage<0.8) add('Data coverage','warn',`${inr(sp.coverage*100)}% of items have this value.`,10); else add('Data coverage','pass',`${inr(sp.coverage*100)}% of items have this value.`);
+  if(sp.unitsMixed) add('Same units','fail','Adds quantities in different units — not comparable.',60);
+  if(['timeseries','combo','cluster','pareto'].includes(sp.kind)){ const v=sp.rows.map(r=>r.v); if(v.length>1&&Math.max(...v)===Math.min(...v)) add('Shows variation','fail','All values are equal — no insight.',50); else add('Shows variation','pass','Values vary.'); }
+  if(sp.kind==='combo') add('Axis rule','pass','Bars and line share one axis and one unit (no dual axis).');
+  if(sp.kind==='pareto') add('Axis rule','pass','Second axis is a 0–100% cumulative share — the only dual axis allowed (Pareto standard).');
+  if(sp.gate) add(sp.gate.name, sp.gate.ok?'pass':'fail', sp.gate.msg, sp.gate.ok?0:60);
+  if((sp.m?.relevance||0)===0) add('Decision relevance','warn','Not linked to a stock decision — informative only.',5);
+  score=Math.max(0,Math.min(100,score)); const failed=ck.some(c=>c.status==='fail');
+  return {verdict:failed||score<60?'REJECTED':'APPROVED',score,checks:ck,fix:null};
+};
+function drawAdv(cid, box, sp){
+  if(sp.kind==='corr'){ if(charts[cid]){charts[cid].destroy(); delete charts[cid];} box.style.height='auto';
+    const col=v=>{ const a=Math.min(1,Math.abs(v)); return v>=0?`rgba(42,120,214,${a*0.85})`:`rgba(227,73,72,${a*0.85})`; };
+    box.innerHTML=`<div style="overflow:auto"><table class="corr"><thead><tr><th></th>${sp.names.map(n=>`<th title="${esc(n)}">${esc(short(n))}</th>`).join('')}</tr></thead><tbody>${sp.R.map((row,i)=>`<tr><th title="${esc(sp.names[i])}">${esc(short(sp.names[i]))}</th>${row.map((v,j)=>`<td style="background:${i===j?'var(--surface-2)':col(v)};color:${Math.abs(v)>0.55&&i!==j?'#fff':'var(--ink)'}" title="${esc(sp.names[i])} × ${esc(sp.names[j])}: r = ${v.toFixed(2)}">${i===j?'—':v.toFixed(2)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="hint" style="margin-top:4px">Blue = move together · red = move opposite · pale = no relationship</div>`; return; }
+  if(!document.getElementById(cid)) box.innerHTML=`<canvas id="${cid}"></canvas>`; box.style.height='300px';
+  const vAx=f=>({beginAtZero:true,ticks:{callback:v=>f(v)}}), cAx={grid:{display:false},ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12}};
+  if(sp.kind==='combo'){ mkChart(cid,{type:'bar',data:{labels:sp.rows.map(r=>r.l),datasets:[{type:'bar',label:'Period total',data:sp.rows.map(r=>r.v),backgroundColor:css('--s1'),borderRadius:4,order:2},{type:'line',label:'3-period average',data:sp.rows.map(r=>r.ma),borderColor:css('--s2'),backgroundColor:css('--s2'),borderWidth:2,pointRadius:0,tension:.25,order:1}]},
+      options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',align:'start',labels:{boxWidth:12}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${sp.fmt(c.raw)}`}}},scales:{x:cAx,y:vAx(sp.fmt)}}}); return; }
+  if(sp.kind==='cluster'){ mkChart(cid,{type:'bar',data:{labels:sp.labels,datasets:sp.series.map(s=>({label:s.label,data:s.data,backgroundColor:s.color,borderRadius:3,borderColor:css('--surface'),borderWidth:1}))},
+      options:{maintainAspectRatio:false,plugins:{legend:{position:'top',align:'start',labels:{boxWidth:12}},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${sp.fmt(c.raw)}`}}},scales:{x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:30}},y:vAx(sp.fmt)}}}); return; }
+  if(sp.kind==='pareto'){ mkChart(cid,{type:'bar',data:{labels:sp.rows.map(r=>r.l),datasets:[{type:'bar',label:sp.m.label,data:sp.rows.map(r=>r.v),backgroundColor:css('--s1'),borderRadius:3,yAxisID:'y',order:2},{type:'line',label:'Cumulative %',data:sp.rows.map(r=>r.cum),borderColor:css('--s2'),backgroundColor:css('--s2'),borderWidth:2,pointRadius:2,yAxisID:'p',order:1}]},
+      options:{maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'top',align:'start',labels:{boxWidth:12}},tooltip:{callbacks:{label:c=>c.datasetIndex?` Cumulative: ${c.raw}%`:` ${sp.fmt(c.raw)}`}}},scales:{x:{grid:{display:false},ticks:{maxRotation:45,autoSkip:false,font:{size:10}}},y:vAx(sp.fmt),p:{position:'right',min:0,max:100,grid:{display:false},ticks:{callback:v=>v+'%'}}}}}); return; }
+  if(sp.kind==='histogram'){ mkChart(cid,{type:'bar',data:{labels:sp.rows.map(r=>r.l),datasets:[{data:sp.rows.map(r=>r.v),backgroundColor:css('--s1'),barPercentage:1,categoryPercentage:1,borderColor:css('--surface'),borderWidth:1}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>`${sp.rows[c[0].dataIndex].l} – ${sp.rows[c[0].dataIndex].hi}`,label:c=>` ${inr(c.raw)} items`}}},scales:{x:{grid:{display:false},title:{display:true,text:sp.m.label},ticks:{maxRotation:45,font:{size:10}}},y:{beginAtZero:true,title:{display:true,text:'items'},ticks:{precision:0}}}}}); return; }
+  if(sp.kind==='scatter'){ mkChart(cid,{type:'scatter',data:{datasets:[{data:sp.pts,backgroundColor:'rgba(42,120,214,0.45)',borderColor:css('--surface'),borderWidth:1,pointRadius:4,pointHoverRadius:7}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw.n}: ${sp.xfmt(c.raw.x)}, ${sp.yfmt(c.raw.y)}`}}},scales:{x:{title:{display:true,text:sp.xl},ticks:{callback:v=>sp.xfmt(v)}},y:{title:{display:true,text:sp.yl},ticks:{callback:v=>sp.yfmt(v)}}}}}); return; }
+  if(sp.kind==='line') return drawSpec(cid,box,sp);
+}
+function renderGallery(A){
+  const ok=A.filter(sp=>sp.ev.verdict==='APPROVED'&&!sp.shown).sort((a,b)=>(b.ev.score+b.insight*20)-(a.ev.score+a.insight*20));
+  // keep variety: at most 2 per chart family, 8 in total
+  const pick=[], per={}; ok.forEach(sp=>{ if(pick.length<8 && (per[sp.catalog]||0)<2){ pick.push(sp); per[sp.catalog]=(per[sp.catalog]||0)+1; sp.shown='Insights gallery'; } });
+  const rej=A.filter(sp=>sp.ev.verdict!=='APPROVED').length;
+  $('#gallerySum').textContent=`${A.length} combinations of your columns checked · ${pick.length} shown · ${rej} skipped (no clear pattern or rule failed — see Chart audit)`;
+  $('#gallery').innerHTML=pick.length?pick.map((sp,i)=>`<div class="card"><h3>${esc(sp.title)} <span class="hint">${esc(sp.hint||'')}</span></h3><div class="chartbox" id="gb${i}"><canvas id="gc${i}"></canvas></div><div id="ge${i}"></div></div>`).join(''):'<p class="hint">No advanced chart passed the checks for this data.</p>';
+  pick.forEach((sp,i)=>{ drawAdv('gc'+i,$('#gb'+i),sp); $('#ge'+i).innerHTML=evalBadge(sp.ev,sp); });
+}
+
 function renderAudit(){
   const A=lastAudit.slice().sort((a,b)=>(b.ev.verdict==='APPROVED')-(a.ev.verdict==='APPROVED')||b.ev.score-a.ev.score);
   const ok=A.filter(a=>a.ev.verdict==='APPROVED').length;
