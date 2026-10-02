@@ -113,6 +113,9 @@ label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--in
 .pol{display:flex;gap:8px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--grid);font-size:13px}
 details.card>summary{cursor:pointer}
 table.corr{border-collapse:separate;border-spacing:2px;font-size:11.5px}table.corr td{text-align:center;padding:6px 4px;border-radius:4px;min-width:46px;border:0}table.corr th{font-size:11px;padding:4px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:static}
+.pin{margin-top:6px;padding:7px 10px;border-radius:8px;background:var(--surface-2);font-size:12.5px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;position:relative;min-height:30px}
+.pin b{width:100%}.pin .pinx{position:absolute;right:6px;top:4px;border:0;background:none;cursor:pointer;color:var(--muted);font-size:13px}
+table.corr td{cursor:pointer}
 /* chat */
 #fab{position:fixed;right:18px;bottom:18px;background:var(--brand);color:#fff;border:0;border-radius:99px;padding:12px 18px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.25);cursor:pointer;z-index:20}
 #chat{position:fixed;right:18px;bottom:18px;width:400px;max-width:calc(100vw - 32px);height:600px;max-height:calc(100vh - 36px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.3);display:none;flex-direction:column;z-index:30;overflow:hidden}
@@ -752,7 +755,27 @@ function metrics(){
 /* ============ rendering ============ */
 let charts={};
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-function mkChart(id,cfg){ if(!window.Chart) return; const el=document.getElementById(id); if(!el) return; if(charts[id]) charts[id].destroy(); Chart.defaults.font.family='system-ui,-apple-system,"Segoe UI",sans-serif'; Chart.defaults.animation={duration:250}; Chart.defaults.transitions.resize={animation:{duration:0}}; Chart.defaults.color=css('--ink-2'); Chart.defaults.borderColor=css('--grid'); charts[id]=new Chart(el,cfg); }
+/* click-to-pin tooltips: hover shows numbers; a click/tap pins them in a panel under the chart */
+function clearPin(box){ const p=box&&box.nextElementSibling; if(p&&p.classList&&p.classList.contains('pin')) p.remove(); }
+function pinPanel(canvas){ const box=canvas.parentElement; let p=box.nextElementSibling; if(!p||!p.classList||!p.classList.contains('pin')){ p=document.createElement('div'); p.className='pin'; p.innerHTML='<span class="hint">Tip: hover or click a bar / point to see its numbers.</span>'; box.insertAdjacentElement('afterend',p); } return p; }
+function addPinning(id,cfg){
+  cfg.options=cfg.options||{}; const o=cfg.options;
+  o.plugins=o.plugins||{}; o.plugins.tooltip=Object.assign({enabled:true,displayColors:true,padding:8,bodyFont:{size:12},titleFont:{size:12,weight:'600'}},o.plugins.tooltip||{});
+  o.onHover=(e,els)=>{ e.native&&e.native.target&&(e.native.target.style.cursor=els.length?'pointer':'default'); };
+  o.onClick=(e,els,chart)=>{ const p=pinPanel(chart.canvas);
+    if(!els.length){ p.innerHTML='<span class="hint">Tip: hover or click a bar / point to see its numbers.</span>'; chart.tooltip.setActiveElements([],{x:0,y:0}); chart.update('none'); return; }
+    // show every dataset at that position (bar + marker / line), formatted exactly like the tooltip
+    const idx=els[0].index, all=chart.data.datasets.map((d,di)=>({datasetIndex:di,index:idx})).filter(a=>chart.getDatasetMeta(a.datasetIndex).data[idx]);
+    const act = chart.config.type==='scatter' ? [els[0]] : all;
+    chart.tooltip.setActiveElements(act,{x:e.x,y:e.y}); chart.update('none');
+    const t=chart.tooltip; const title=(t.title||[]).join(' '); const lines=(t.body||[]).flatMap(b=>b.lines);
+    p.innerHTML=`<b>📌 ${esc(title||chart.data.labels?.[idx]||'')}</b>${lines.map(l=>`<span>${esc(l.trim())}</span>`).join('')}<button type="button" class="pinx" title="Clear">✕</button>`;
+    p.querySelector('.pinx').onclick=()=>{ p.innerHTML='<span class="hint">Tip: hover or click a bar / point to see its numbers.</span>'; chart.tooltip.setActiveElements([],{x:0,y:0}); chart.update('none'); };
+  };
+  o.interaction=Object.assign({mode:cfg.type==='scatter'?'nearest':'index',intersect:cfg.type==='scatter'},o.interaction||{});
+  return cfg;
+}
+function mkChart(id,cfg){ if(!window.Chart) return; const el=document.getElementById(id); if(!el) return; if(charts[id]) charts[id].destroy(); addPinning(id,cfg); setTimeout(()=>pinPanel(el),0); Chart.defaults.font.family='system-ui,-apple-system,"Segoe UI",sans-serif'; Chart.defaults.animation.duration=250; Chart.defaults.transitions.resize.animation.duration=0; Chart.defaults.color=css('--ink-2'); Chart.defaults.borderColor=css('--grid'); charts[id]=new Chart(el,cfg); }
 const histLabels=n=>Array.from({length:n},(_,i)=>new Date(S.meta.asOf-(n-1-i)*DAY).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}));
 const stPill=s=>`<span class="st ${s}">${s==='NODATA'?'NO USAGE DATA':s}</span>`;
 const stColor={CRITICAL:'#d03b3b',LOW:'#ec835a',OK:'#0ca30c',EXCESS:'#fab219',NODATA:'#898781'};
@@ -980,7 +1003,7 @@ function renderCharts(M){
     const box=$('#b'+slot), cid='c'+slot;
     if(pick){ used.add(pick); pick.shown='Dashboard slot '+slot; $('#t'+slot).innerHTML=`${esc(pick.title)} <span class="hint">${esc(pick.hint||'')}</span>`; (ADV_KINDS.includes(pick.kind)?drawAdv:drawSpec)(cid,box,pick);
       $('#e'+slot).innerHTML=(pick.legend?'<div class="hint" style="margin-top:6px"><span class="st CRITICAL">CRITICAL</span> <span class="st LOW">LOW</span> <span class="st OK">OK</span> <span class="st EXCESS">EXCESS</span> <span class="st NODATA">NO USAGE DATA</span></div>':'')+evalBadge(pick.ev,pick); }
-    else { if(charts[cid]){charts[cid].destroy(); delete charts[cid];} box.style.height='auto';
+    else { if(charts[cid]){charts[cid].destroy(); delete charts[cid];} clearPin(box); box.style.height='auto';
       const rej=C.filter(sp=>sp.slot===slot).sort((a,b)=>b.ev.score-a.ev.score)[0];
       $('#t'+slot).textContent='No approved chart for this data';
       box.innerHTML=`<div class="empty">The engine checked ${C.filter(sp=>sp.slot===slot).length} possible chart(s) here and none passed.${rej?`<br>Closest: “${esc(rej.title)}” — ${esc(rej.ev.checks.find(c=>c.status==='fail')?.msg||'score too low')}`:''}</div>`; $('#e'+slot).innerHTML=''; }
@@ -1101,9 +1124,12 @@ evaluate=function(sp,M){
   return {verdict:failed||score<60?'REJECTED':'APPROVED',score,checks:ck,fix:null};
 };
 function drawAdv(cid, box, sp){
-  if(sp.kind==='corr'){ if(charts[cid]){charts[cid].destroy(); delete charts[cid];} box.style.height='auto';
+  if(sp.kind==='corr'){ if(charts[cid]){charts[cid].destroy(); delete charts[cid];} clearPin(box); box.style.height='auto';
     const col=v=>{ const a=Math.min(1,Math.abs(v)); return v>=0?`rgba(42,120,214,${a*0.85})`:`rgba(227,73,72,${a*0.85})`; };
-    box.innerHTML=`<div style="overflow:auto"><table class="corr"><thead><tr><th></th>${sp.names.map(n=>`<th title="${esc(n)}">${esc(short(n))}</th>`).join('')}</tr></thead><tbody>${sp.R.map((row,i)=>`<tr><th title="${esc(sp.names[i])}">${esc(short(sp.names[i]))}</th>${row.map((v,j)=>`<td style="background:${i===j?'var(--surface-2)':col(v)};color:${Math.abs(v)>0.55&&i!==j?'#fff':'var(--ink)'}" title="${esc(sp.names[i])} × ${esc(sp.names[j])}: r = ${v.toFixed(2)}">${i===j?'—':v.toFixed(2)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="hint" style="margin-top:4px">Blue = move together · red = move opposite · pale = no relationship</div>`; return; }
+    box.innerHTML=`<div style="overflow:auto"><table class="corr"><thead><tr><th></th>${sp.names.map(n=>`<th title="${esc(n)}">${esc(short(n))}</th>`).join('')}</tr></thead><tbody>${sp.R.map((row,i)=>`<tr><th title="${esc(sp.names[i])}">${esc(short(sp.names[i]))}</th>${row.map((v,j)=>`<td style="background:${i===j?'var(--surface-2)':col(v)};color:${Math.abs(v)>0.55&&i!==j?'#fff':'var(--ink)'}" title="${esc(sp.names[i])} × ${esc(sp.names[j])}: r = ${v.toFixed(2)}">${i===j?'—':v.toFixed(2)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="hint" style="margin-top:4px">Blue = move together · red = move opposite · pale = no relationship · click a cell for details</div><div class="pin"><span class="hint">Click a cell to see its numbers.</span></div>`;
+    box.querySelectorAll('table.corr td').forEach(td=>td.onclick=()=>{ const r=parseFloat(td.textContent); const [a,b]=td.title.split(': r = ')[0].split(' × '); const p=box.querySelector('.pin');
+      p.innerHTML=isNaN(r)?'<span class="hint">Same column.</span>':`<b>📌 ${esc(a)} × ${esc(b)}</b><span>Pearson r = ${r.toFixed(2)}</span><span>${Math.abs(r)>=0.6?'Strong':Math.abs(r)>=0.3?'Moderate':'Weak / no'} ${r>=0?'positive':'negative'} relationship${Math.abs(r)>=0.3?` — when ${esc(a)} goes up, ${esc(b)} tends to go ${r>=0?'up':'down'}`:''}.</span>`; });
+    return; }
   if(!document.getElementById(cid)) box.innerHTML=`<canvas id="${cid}"></canvas>`; box.style.height='300px';
   const vAx=f=>({beginAtZero:true,ticks:{callback:v=>f(v)}}), cAx={grid:{display:false},ticks:{maxRotation:0,autoSkip:true,maxTicksLimit:12}};
   if(sp.kind==='combo'){ mkChart(cid,{type:'bar',data:{labels:sp.rows.map(r=>r.l),datasets:[{type:'bar',label:'Period total',data:sp.rows.map(r=>r.v),backgroundColor:css('--s1'),borderRadius:4,order:2},{type:'line',label:'3-period average',data:sp.rows.map(r=>r.ma),borderColor:css('--s2'),backgroundColor:css('--s2'),borderWidth:2,pointRadius:0,tension:.25,order:1}]},
@@ -1115,7 +1141,7 @@ function drawAdv(cid, box, sp){
   if(sp.kind==='histogram'){ mkChart(cid,{type:'bar',data:{labels:sp.rows.map(r=>r.l),datasets:[{data:sp.rows.map(r=>r.v),backgroundColor:css('--s1'),barPercentage:1,categoryPercentage:1,borderColor:css('--surface'),borderWidth:1}]},
       options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>`${sp.rows[c[0].dataIndex].l} – ${sp.rows[c[0].dataIndex].hi}`,label:c=>` ${inr(c.raw)} items`}}},scales:{x:{grid:{display:false},title:{display:true,text:sp.m.label},ticks:{maxRotation:45,font:{size:10}}},y:{beginAtZero:true,title:{display:true,text:'items'},ticks:{precision:0}}}}}); return; }
   if(sp.kind==='scatter'){ mkChart(cid,{type:'scatter',data:{datasets:[{data:sp.pts,backgroundColor:'rgba(42,120,214,0.45)',borderColor:css('--surface'),borderWidth:1,pointRadius:4,pointHoverRadius:7}]},
-      options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.raw.n}: ${sp.xfmt(c.raw.x)}, ${sp.yfmt(c.raw.y)}`}}},scales:{x:{title:{display:true,text:sp.xl},ticks:{callback:v=>sp.xfmt(v)}},y:{title:{display:true,text:sp.yl},ticks:{callback:v=>sp.yfmt(v)}}}}}); return; }
+      options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>c[0].raw.n,label:c=>[` ${sp.xl}: ${sp.xfmt(c.raw.x)}`,` ${sp.yl}: ${sp.yfmt(c.raw.y)}`]}}},scales:{x:{title:{display:true,text:sp.xl},ticks:{callback:v=>sp.xfmt(v)}},y:{title:{display:true,text:sp.yl},ticks:{callback:v=>sp.yfmt(v)}}}}}); return; }
   if(sp.kind==='line') return drawSpec(cid,box,sp);
 }
 function renderGallery(A){
@@ -1154,7 +1180,7 @@ function renderBuilder(M, cfgOverride){
   sp.ev=evaluate(sp,M);
   let extra='';
   if(sp.ev.verdict==='APPROVED'){ $('#bTitle').textContent=sp.title; drawSpec('cBuild',box,sp); extra=` <button class="btn ghost" type="button" id="pinBtn" style="padding:3px 10px;font-size:12px">＋ Add to dashboard</button>`; }
-  else { if(charts.cBuild){charts.cBuild.destroy(); delete charts.cBuild;} box.style.height='auto'; $('#bTitle').textContent='Chart not approved';
+  else { if(charts.cBuild){charts.cBuild.destroy(); delete charts.cBuild;} clearPin(box); box.style.height='auto'; $('#bTitle').textContent='Chart not approved';
     let alt=''; if(sp.ev.fix){ const f=specCustom(M,sp.ev.fix.m,sp.ev.fix.g,sp.ev.fix.a,+sp.ev.fix.n); if(f){ f.ev=evaluate(f,M); if(f.ev.verdict==='APPROVED') alt=`<br><button class="btn ghost" type="button" id="fixBtn" style="margin-top:8px">Use approved alternative: ${esc(f.title)}</button>`; } }
     box.innerHTML=`<div class="empty">✕ ${esc(sp.title)} was rejected by the evaluation engine:<br>${sp.ev.checks.filter(c=>c.status==='fail').map(c=>'• '+esc(c.msg)).join('<br>')}${alt}</div>`;
     const fb=$('#fixBtn'); if(fb) fb.onclick=()=>renderBuilder(null,sp.ev.fix); }
